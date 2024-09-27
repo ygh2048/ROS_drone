@@ -37,9 +37,9 @@ void cv_task_cb(const ctrl_msgs::command::ConstPtr& msg)
 {
     get_msg[1] = *msg;//更新CV信息
 
-    ctrl.x = get_msg[1].x;
-    ctrl.y = get_msg[1].y;
-    ctrl.z = get_msg[1].z;
+    ctrl.vx = get_msg[1].vx;
+    ctrl.vy = get_msg[1].vy;
+    ctrl.vz = get_msg[1].vz;
     ctrl.yaw = get_msg[1].yaw;
     ctrl.Finishcv_flag = get_msg[1].Finishcv_flag;  
 }

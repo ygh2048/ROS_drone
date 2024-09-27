@@ -95,9 +95,9 @@ void choose_target(int check_flag)
 {
 	if(check_flag== 1 )//视觉
 	{
-		current_goal.position.x = get_ctrl.x;//位置
-		current_goal.position.y	= get_ctrl.y;
-		current_goal.position.z = get_ctrl.z;
+		current_goal.velocity.x = get_ctrl.vx;//位置
+		current_goal.velocity.y = get_ctrl.vy;
+		current_goal.velocity.z = get_ctrl.vz;
 		current_goal.yaw_rate = get_ctrl.yaw;
 	}
 	else if(check_flag == 0)//航点
