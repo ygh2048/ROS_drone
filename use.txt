@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 将功能包加载进入环境变量
 1,在当前工作空间下
 source devel/setup.bash
@@ -20,4 +21,28 @@ imu
 rostopic echo /topic | grep frame_id
 
 tracking_frame =  #imu的frame_id
+=======
+将功能包加载进入环境变量
+1,在当前工作空间下
+source devel/setup.bash
+
+加载所有环境变量
+source ~/.bashrc
+
+
+cartographer参数配置
+雷达的探测范围（trajectory_builder_nD.min(max)_range） 这个参数就根据雷达的性能设置，来保证建图满足要求。
+范围数据的积累数量（num_accumulated_range_data） 我对算法处理的数据类型是一个经过处理的scan，举个例子，比如这个数字给了5，那么算法将5次的raw scan进行处理成1个没有扭曲的，更加合适的scan发送到下一个节点。也有一种情况就是两个雷达上下放置，这样一次就有2个raw scan，理所应当设置为2。对于3D雷达同理，不过数据类型和2D稍有不同，官网中有详细介绍。数字越小，raw scan利用率越高，但是未必是好事；数字越大，可能导致scan信息不够，影响建图。官网文档中“the more often cartographer gets measurements, the better it becomes at unwarping the measurements to assemble a single coherent scan.”。
+Ceres scan matcher 谷歌的ceres算法库（具体原理不多说），最大迭代次数和线程数要进行设置。理论上说这个迭代次数越大越精准，不过这里设置的是最大迭代次数，而不是每次迭代次数，所以自认为给大点没啥关系。线程数就按照cpu的核数给，tx2的性能模式有6个核，我设置了6。
+real time correlative scan matcher 算法中的另一种scan matcher，和3中的算法区别可以阅读官网教程。其中use online项我设置成了true。
+
+
+查看frame-id
+雷达
+rostopic echo /scan | grep frame_id
+imu
+rostopic echo /topic | grep frame_id
+
+tracking_frame =  #imu的frame_id
+>>>>>>> ca253d21301eb8d4aa2cdb65d804e9cb085fa1fd
 published_frame = #雷达的frame_id
