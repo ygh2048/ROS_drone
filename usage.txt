@@ -1,9 +1,3 @@
-<<<<<<< HEAD
 how to use gitub
 
 
-=======
-how to use gitub
-
-
->>>>>>> ca253d21301eb8d4aa2cdb65d804e9cb085fa1fd

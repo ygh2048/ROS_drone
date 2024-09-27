@@ -1,0 +1,15 @@
+global_costmap:
+  # 设置全局代价地图运行的参考系
+  global_frame: map
+  # 设置代价地图可以参考的机器人本体的坐标系
+  robot_base_frame: base_link
+ 
+  # 设置全局地图信息更新频率，单位是Hz
+  update_frequency: 10.0
+  # 设置全局代价地图发布可视化信息的频率，单位是Hz
+  publish_frequency: 10.0
+  # 坐标系间的转换可以忍受的最大延时
+  transform_tolerance: 1
+
+  # 用来决定代价地图是否需要根据map_server提供的地图信息进行初始化
+  static_map: true

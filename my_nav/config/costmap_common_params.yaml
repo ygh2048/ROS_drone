@@ -1,0 +1,21 @@
+# 设置机器人检测障碍物的最大范围
+obstacle_range: 4
+# 设置机器人检测自由空间的最大范围
+raytrace_range: 6
+ 
+# 设置机器人的外形半径
+robot_radius:  0.38
+# 设置障碍物的膨胀参数，也就是机器人应该与障碍物保持的最小安全距离
+inflation_radius: 1
+# 设置代价比例系数，越大则代价值越小，占用的计算量也越小
+cost_scaling_factor: 13.0
+# 设置地图类型为代价地图
+map_type: costmap
+ 
+# observation_sources列出了代价地图需要关注的所有传感器信息，每个传感器信息都会在后面列出详细内容（这里只有雷达）。
+# sensor_frame表示传感器的参考系名称
+# data_type表示激光数据或者点云数据使用的消息类型
+# topic表示传感器发布的话题名称
+# marking和clearing用来表示是否需要使用传感器的实时信息来添加或清除代价地图中的障碍物信息。
+observation_sources: scan
+scan: {sensor_frame: base_link, data_type: LaserScan, topic: scan, marking: true, clearing: true}

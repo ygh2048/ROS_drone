@@ -1,0 +1,20 @@
+{
+    "ros.distro": "melodic",
+    "python.autoComplete.extraPaths": [
+        "/home/tianbot/F1car/devel/lib/python2.7/dist-packages",
+        "/home/tianbot/Fast-Drone-250/devel/lib/python2.7/dist-packages",
+        "/home/tianbot/cxr/devel/lib/python2.7/dist-packages",
+        "/home/tianbot/turtlebot_ws/devel/lib/python2.7/dist-packages",
+        "/opt/ros/melodic/lib/python2.7/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/tianbot/F1car/devel/lib/python2.7/dist-packages",
+        "/home/tianbot/Fast-Drone-250/devel/lib/python2.7/dist-packages",
+        "/home/tianbot/cxr/devel/lib/python2.7/dist-packages",
+        "/home/tianbot/turtlebot_ws/devel/lib/python2.7/dist-packages",
+        "/opt/ros/melodic/lib/python2.7/dist-packages"
+    ],
+    "files.associations": {
+        "cmath": "cpp"
+    }
+}

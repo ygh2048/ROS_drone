@@ -1,0 +1,21 @@
+# 当move_base在不活动状态时，是否关掉costmap
+shutdown_costmaps: false
+# 向无人机发送话题命令的频率
+controller_frequency: 5
+# 在空间清理操
+controller_patience: 15.0
+# 全局规划操作的执行频率.
+# 如果设置为0.0，则全局规划器仅在接收到新的目标点或者局部规划器报告路径堵塞时才会重新执行规划操作
+planner_frequency: 5.0
+# 在空间清理操作执行前，留给规划器多长时间来找出一条有效规划
+planner_patience: 5.0
+ 
+# 清除机制的参数，决定清除多远处的障碍
+conservative_reset_dist: 6.0
+ 
+# 震荡超时，超过则底层进行异常处理
+oscillation_timeout: 3.0
+# 震荡距离
+oscillation_distance: 0.05
+# 是否启动旋转的恢复，必须是recovery_behavior_enabled在使能的基础上才能生效
+clearing_rotation_allowed: false

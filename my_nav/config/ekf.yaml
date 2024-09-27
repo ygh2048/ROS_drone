@@ -1,0 +1,23 @@
+ekf_localization_node:
+  frequency: 200.0
+  sensor_timeout: 1.0
+  two_d_mode: false
+  publish_tf: true
+  odom_frame_id: "odom"
+  base_link_frame_id: "base_link"
+  world_frame_id: "map"
+
+  imu0: "/px4/imu/data"
+  imu0_config: [true, true, true,  # Orientation
+                 false, false, false,  # No linear acceleration
+                 false, false, false,  # No linear velocity
+                 false, false]  # No angular velocity
+
+  odom0: "/t265/odom/sample"
+  odom0_config: [false, false, false,  # No position
+                 true, true, true,  # Linear velocity
+                 false, false, false]  # No angular velocity
+
+  process_noise_covariance: [0.01, 0.01, 0.01,  # Linear acceleration
+                             0.01, 0.01, 0.01,  # Angular velocity
+                             0.01, 0.01]  # Other noise settings

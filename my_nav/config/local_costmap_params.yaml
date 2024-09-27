@@ -1,0 +1,14 @@
+local_costmap:
+  global_frame: map
+  robot_base_frame: base_link
+  update_frequency: 10.0
+  publish_frequency: 10.0
+  transform_tolerance: 1
+ 
+  static_map: false
+  # 设置在机器人移动过程中是否需要滚动窗口，以保持机器人处于中心位置
+  rolling_window: true
+  # width、height和resolution用于设置代价地图的长（米）、高（米）和分辨率（米/格）
+  width: 5
+  height: 5
+  resolution: 0.04
