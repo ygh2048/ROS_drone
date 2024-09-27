@@ -7,12 +7,12 @@ echo "start task"
 source ~/.bashrc
 
 roslaunch mavros px4.launch &
-echo "*********** sleep 5 second ***********"
-sleep 5
+echo "*********** sleep 10 second ***********"
+sleep 10
 
 roslaunch px4_realsense_bridge bridge.launch &
-echo "*********** sleep 5 second ***********"
-sleep 5
+echo "*********** sleep 10 second ***********"
+sleep 10
 
 
 roslaunch rplidar_ros rplidar_a2m7.launch &
