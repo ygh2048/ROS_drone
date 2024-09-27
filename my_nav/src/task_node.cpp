@@ -75,6 +75,7 @@ private:
     int send_task( int send_num);
     int nav_land_task(void);
     bool nav_takeoff_task(void);
+    bool access(void);
 public:
     task_node(/* args */);
     ~task_node();
@@ -104,13 +105,20 @@ task_node::~task_node()
 
 bool task_node::get_targetheight( float height)
 {
-    static int cnt =1;
-    if(abs(current_pose.pose.position.z-height)<0.05 &&cnt < 20)
+    static int cnt = 0;
+    if(abs(current_pose.pose.position.z-height)<0.05 &&cnt < 5)
     {
     cnt ++ ;
     }
-    return cnt >= 20;
-
+    if(cnt >=5)
+    {
+        cnt = 0;
+        return true;
+    }
+    else
+    {
+        return false
+    }
 }
 
 bool task_node::cv_task( int flag)
@@ -120,8 +128,8 @@ bool task_node::cv_task( int flag)
 
 
     //cv识别到的已经默认发送
-    ROS_INFO("pub:CV_task");
     task_pub.publish(ctrl);
+    ROS_INFO("pub:CV_task");
     if(ctrl.Finishcv_flag == 0){
     return false;
     }
@@ -136,8 +144,8 @@ int task_node::send_task( int send_num)
 {
     ctrl.CV_flag = 0;
     ctrl.SEND_flag = send_num;//启动航点控制
-    ROS_INFO("pub:SEND_task");
     task_pub.publish(ctrl);
+    ROS_INFO("pub:SEND_task");
     if(ctrl.Finishcv_flag == 0){
     return 0;
     }
@@ -153,9 +161,8 @@ int task_node::nav_land_task(void)
 {
     clear_flag(ctrl);
     ctrl.Land_flag = 1;//降落指令
-    ROS_INFO("pub:land");
     task_pub.publish(ctrl);
-
+    ROS_INFO("pub:land");
     return 1;
 }
 
@@ -163,13 +170,26 @@ bool task_node::nav_takeoff_task(void)
 {
     clear_flag(ctrl);
     ctrl.Takeoff_flag = 1;//起飞指令
-    ROS_INFO("pub:takeoff");
     task_pub.publish(ctrl);
+    ROS_INFO("pub:takeoff");
 
-    return get_targetheight(1);
+
+    return get_targetheight(1.);
 
 }
 
+bool task_node::access(void)
+{
+    clear_flag(ctrl);
+    ctrl.CV_flag = flag;//启动视觉控制   自给
+    ctrl.SEND_flag = 0; 
+    ctrl.vz = 0;
+    ctrl.vy = 0;
+    ctrl.vx = 0.6;
+    stask_pub.publish(ctrl);
+    ROS_INFO("pub:access");
+
+}
 
 int main(int argc, char **argv)
 {
@@ -250,7 +270,7 @@ int skip_flag = 0;
 
 while (ros::ok())
 {
-    while(task.nav_takeoff_task() && ros::ok())
+    while(!task.nav_takeoff_task() && ros::ok())
     {
     ros::spinOnce();
     rate.sleep();
