@@ -6,7 +6,7 @@
 #include <ctrl_msgs/command.h>
 
 
-#define USE_ENABLE    1 //选择代码类型
+#define USE_ENABLE    0 //选择代码类型
 
 #define TARGET_Z      1
 
