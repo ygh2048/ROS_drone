@@ -70,7 +70,7 @@ void nav_task_cb(const ctrl_msgs::command::ConstPtr& msg)
     get_msg[2] = *msg;//更新NAV信息
 }
 
-void clear_flag(void)
+void clear_flag(ctrl_msgs::command ctrl)
 {
     ctrl.Land_flag = 0;
     ctrl.Takeoff_flag = 0; 
@@ -85,7 +85,6 @@ void clear_flag(void)
     ctrl.y= 0.0;
     ctrl.z= 0.0;
     ctrl.yaw = 0.0;
-
 }
 
 
@@ -95,18 +94,12 @@ bool get_targetheight( float height)
     static int cnt =1;
     if(abs(current_pose.pose.position.z-height)<0.05 &&cnt < 20)
     {
-
-        cnt ++ ;
-
+    cnt ++ ;
     }
     if(cnt >=20)
-    {
-        return true;
-    }
+    {return true;}
     else 
-    {
-        return false;
-    }
+    {return false;}
 
 }
 
@@ -148,7 +141,7 @@ int send_task( int send_num)
 
 int nav_land_task(void)
 {
-    clear_flag();
+    clear_flag(ctrl);
     ctrl.Land_flag = 1;//降落指令
     ROS_INFO("pub:land");
     task_pub.publish(ctrl);
@@ -158,7 +151,7 @@ int nav_land_task(void)
 
 bool nav_takeoff_task(void)
 {
-    clear_flag();
+    clear_flag(ctrl);
     ctrl.Takeoff_flag = 1;//起飞指令
     ROS_INFO("pub:takeoff");
     task_pub.publish(ctrl);
@@ -211,21 +204,21 @@ while(ros::ok()){
         case 0:
             if(nav_takeoff_task())
             {
-                clear_flag();
+                clear_flag(ctrl);
                 processflag++;
             }
             break;
         case 1:
             if(cv_task(1))
             {
-                clear_flag();
+                clear_flag(ctrl);
                 processflag++;
             }
             break;
         case 2:
             if(send_task(1))
             {
-                clear_flag();
+                clear_flag(ctrl);
                 processflag++;
             }
             break;
@@ -233,12 +226,12 @@ while(ros::ok()){
         case 3:
             if(cv_task(1))
             {
-                clear_flag();
+                clear_flag(ctrl);
                 processflag++;
             }
             break;
         default:
-            clear_flag();
+            clear_flag(ctrl);
             nav_land_task();
             break;
         }
