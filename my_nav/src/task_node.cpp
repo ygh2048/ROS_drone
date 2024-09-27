@@ -14,6 +14,27 @@ mavros_msgs::State current_state;
 geometry_msgs::PoseStamped current_pose;//获取当前坐标
 ros::Publisher task_pub;
 
+class task_node
+{
+private:
+    /* data */
+public:
+    task_node(/* args */);
+    ~task_node();
+};
+
+task_node::task_node(/* args */)
+{
+    ROS_INFO("create task");
+}
+
+task_node::~task_node()
+{
+    ROS_INFO("end task");  
+}
+
+
+
 int processflag=0;//进度flag
 
 ctrl_msgs::command get_msg[3];//获取消息
