@@ -40,8 +40,9 @@ mavros_msgs::RCIn rc;
 
 ctrl_msgs::command	get_ctrl;
 
-int end_flag=0;
-int check_flag=0;  //0 多航点   //1  视觉 
+int end_flag = 0;
+int start_flag = 0;
+int check_flag = 0;  //0 多航点   //1  视觉 
 
 int rc_value;
 
@@ -78,6 +79,13 @@ void task_cb(const ctrl_msgs::command::ConstPtr& msg)
 	{
 		end_flag = 1;
     }
+
+	if (get_ctrl.Takeoff_flag == 1) //不会被置零
+	{
+		start_flag = 1;
+    }
+	
+
 
 	if(get_ctrl.CV_flag == 1)
 	{
@@ -143,6 +151,13 @@ int main(int argc, char **argv)
 
 			// wait for FCU connection
 	while(ros::ok() && !current_state.connected)
+		{
+			ros::spinOnce();
+			rate.sleep();
+		}
+
+
+	while(ros::ok() && !start_flag)//等待起飞指令
 		{
 			ros::spinOnce();
 			rate.sleep();

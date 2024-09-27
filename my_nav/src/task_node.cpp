@@ -106,11 +106,11 @@ task_node::~task_node()
 bool task_node::get_targetheight( float height)
 {
     static int cnt = 0;
-    if(abs(current_pose.pose.position.z-height)<0.05 &&cnt < 5)
+    if(abs(current_pose.pose.position.z-height)<0.05 &&cnt < 10)
     {
     cnt ++ ;
     }
-    if(cnt >=5)
+    if(cnt >=10)
     {
         cnt = 0;
         return true;
