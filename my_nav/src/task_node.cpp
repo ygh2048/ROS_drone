@@ -12,28 +12,6 @@
 
 mavros_msgs::State current_state;
 geometry_msgs::PoseStamped current_pose;//获取当前坐标
-ros::Publisher task_pub;
-
-class task_node
-{
-private:
-    /* data */
-public:
-    task_node(/* args */);
-    ~task_node();
-};
-
-task_node::task_node(/* args */)
-{
-    ROS_INFO("create task");
-}
-
-task_node::~task_node()
-{
-    ROS_INFO("end task");  
-}
-
-
 
 int processflag=0;//进度flag
 
@@ -46,8 +24,6 @@ void pose_cb(const geometry_msgs::PoseStamped::ConstPtr& msg) {
 void state_cb(const mavros_msgs::State::ConstPtr& msg){
     current_state = *msg; // 更新当前控制信息
 }
-
-
 void send_task_cb(const ctrl_msgs::command::ConstPtr& msg)
 {
     get_msg[0] = *msg;//更新航点信息
@@ -81,29 +57,63 @@ void clear_flag(ctrl_msgs::command ctrl)
     ctrl.SEND_flag = 0;  
     ctrl.Finishsend_flag = 0;
 
-    ctrl.x= 0.0;
-    ctrl.y= 0.0;
-    ctrl.z= 0.0;
+    ctrl.vx= 0.0;
+    ctrl.vy= 0.0;
+    ctrl.vz= 0.0;
     ctrl.yaw = 0.0;
+}
+
+class task_node
+{
+private:
+    /* data */
+    ros::NodeHandle nh;
+    ros::Publisher task_pub;
+
+    bool get_targetheight( float height);
+    bool cv_task( int flag);
+    int send_task( int send_num);
+    int nav_land_task(void);
+    bool nav_takeoff_task(void);
+public:
+    task_node(/* args */);
+    ~task_node();
+};
+
+task_node::task_node(/* args */)
+{
+    ROS_INFO("create task");
+
+    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 10, pose_cb);
+    ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("mavros/state", 10, state_cb);
+
+    ros::Subscriber send_task_sub = nh.subscribe<ctrl_msgs::command>("task/send_to_task",10,send_task_cb);
+    ros::Subscriber cv_task_sub = nh.subscribe<ctrl_msgs::command>("task/cv_to_task",10,cv_task_cb);
+    ros::Subscriber nav_task_sub = nh.subscribe<ctrl_msgs::command>("task/nav_to_task",10,nav_task_cb);
+
+
+	ros::Publisher task_pub = nh.advertise<ctrl_msgs::command>("task/task_pub",1);
+}
+
+task_node::~task_node()
+{
+    ROS_INFO("end task");  
 }
 
 
 
-bool get_targetheight( float height)
+bool task_node::get_targetheight( float height)
 {
     static int cnt =1;
     if(abs(current_pose.pose.position.z-height)<0.05 &&cnt < 20)
     {
     cnt ++ ;
     }
-    if(cnt >=20)
-    {return true;}
-    else 
-    {return false;}
+    return cnt >= 20;
 
 }
 
-bool cv_task( int flag)
+bool task_node::cv_task( int flag)
 {    
     ctrl.CV_flag = flag;//启动视觉控制
     ctrl.SEND_flag = 0; 
@@ -122,7 +132,7 @@ bool cv_task( int flag)
 
 }
 
-int send_task( int send_num)
+int task_node::send_task( int send_num)
 {
     ctrl.CV_flag = 0;
     ctrl.SEND_flag = send_num;//启动航点控制
@@ -139,7 +149,7 @@ int send_task( int send_num)
 
 }
 
-int nav_land_task(void)
+int task_node::nav_land_task(void)
 {
     clear_flag(ctrl);
     ctrl.Land_flag = 1;//降落指令
@@ -149,7 +159,7 @@ int nav_land_task(void)
     return 1;
 }
 
-bool nav_takeoff_task(void)
+bool task_node::nav_takeoff_task(void)
 {
     clear_flag(ctrl);
     ctrl.Takeoff_flag = 1;//起飞指令
@@ -164,19 +174,8 @@ bool nav_takeoff_task(void)
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "task_node");
-    ros::NodeHandle nh;
-    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 10, pose_cb);
-    ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("mavros/state", 10, state_cb);
-
-
-
-    ros::Subscriber send_task_sub = nh.subscribe<ctrl_msgs::command>("task/send_to_task",10,send_task_cb);
-    ros::Subscriber cv_task_sub = nh.subscribe<ctrl_msgs::command>("task/cv_to_task",10,cv_task_cb);
-    ros::Subscriber nav_task_sub = nh.subscribe<ctrl_msgs::command>("task/nav_to_task",10,nav_task_cb);
-
-
-	ros::Publisher task_pub = nh.advertise<ctrl_msgs::command>("task/task_pub",1);
-
+    
+    task_node task;
 
     //the setpoint publishing rate MUST be faster than 2Hz
     ros::Rate rate(20.0);
@@ -202,21 +201,21 @@ while(ros::ok()){
     switch (processflag)
         {
         case 0:
-            if(nav_takeoff_task())
+            if(task.nav_takeoff_task())
             {
                 clear_flag(ctrl);
                 processflag++;
             }
             break;
         case 1:
-            if(cv_task(1))
+            if(task.cv_task(1))
             {
                 clear_flag(ctrl);
                 processflag++;
             }
             break;
         case 2:
-            if(send_task(1))
+            if(task.send_task(1))
             {
                 clear_flag(ctrl);
                 processflag++;
@@ -224,7 +223,7 @@ while(ros::ok()){
             break;
 
         case 3:
-            if(cv_task(1))
+            if(task.cv_task(1))
             {
                 clear_flag(ctrl);
                 processflag++;
@@ -232,11 +231,11 @@ while(ros::ok()){
             break;
         default:
             clear_flag(ctrl);
-            nav_land_task();
+            task.nav_land_task();
             break;
         }
 
-        task_pub.publish(ctrl);
+        task.task_pub.publish(ctrl);
         ros::spinOnce();
         rate.sleep();
     }
@@ -246,12 +245,12 @@ while(ros::ok()){
 #if USE_ENABLE == 1
 
 int cnt = 0;
-nav_takeoff_task();
+task.nav_takeoff_task();
 int skip_flag = 0;
 
 while (ros::ok())
 {
-    while(nav_takeoff_task() && ros::ok())
+    while(task.nav_takeoff_task() && ros::ok())
     {
     ros::spinOnce();
     rate.sleep();
@@ -259,7 +258,7 @@ while (ros::ok())
     
 
     cv_task(1);
-    task_pub.publish(ctrl);
+    task.task_pub.publish(ctrl);
     ros::spinOnce();
     rate.sleep();
 
