@@ -186,6 +186,7 @@ bool task_node::access(void)
     ctrl.vz = 0;
     ctrl.vy = 0;
     ctrl.vx = 0.6;
+    //ctrl.x = 3;
     stask_pub.publish(ctrl);
     ROS_INFO("pub:access");
 
@@ -284,7 +285,5 @@ while (ros::ok())
 
 }
 #endif
-
-
     return 0;
 }
