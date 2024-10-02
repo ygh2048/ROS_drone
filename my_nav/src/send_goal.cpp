@@ -14,8 +14,6 @@
  move_base在world中的目标
 */ 
 
-
-
 geometry_msgs::PoseStamped current_pose;
 
 ros::Publisher send_task_pub;
@@ -149,15 +147,14 @@ int main(int argc, char** argv)
 	ros::spinOnce();//调用回调函数
 	rate.sleep();
 
-
 	if(get_ctrl_flag.SEND_flag != 0)
 	{
 	processflag = get_ctrl_flag.SEND_flag;
 	}
-
 }
-
 	
 return 0;
 
 }
+
+

@@ -6,7 +6,7 @@
 #include <ctrl_msgs/command.h>
 
 
-#define USE_ENABLE    0 //选择代码类型
+#define USE_ENABLE    1 //选择代码类型
 
 #define TARGET_Z      1
 
@@ -31,7 +31,8 @@ private:
     ros::Subscriber send_task_sub;
     ros::Subscriber cv_task_sub;
 
-    bool get_targetheight( float height);
+    bool get_targetheight(float height);
+    bool get_targetx(float x);
     void pose_cb(const geometry_msgs::PoseStamped::ConstPtr& msg) {
     current_pose = *msg;  // 更新当前位置信息
     }
@@ -53,8 +54,6 @@ private:
     ctrl.vz = get_msg[1].vz;
     ctrl.yaw = get_msg[1].yaw;
     ctrl.Finishcv_flag = get_msg[1].Finishcv_flag;}
-
-
     
 public:
     task_node(ros::NodeHandle& nh);
@@ -64,7 +63,7 @@ public:
     bool send_task( int send_num);
     int nav_land_task(void);
     bool nav_takeoff_task(void);
-    bool access(int flag);  
+    bool access(int flag,int deepth);
     void task_spin(void);
     void clear_flag(void);
     void pub(void)
@@ -113,12 +112,28 @@ bool task_node::get_targetheight( float height)
     }
 }
 
+bool task_node::get_targetx(float x)
+{
+    static int cnt = 0;
+    if(abs(current_pose.pose.position.x-x)<0.05 &&cnt < 10)
+    {
+    cnt ++ ;
+    }
+    if(cnt >=10)
+    {
+        cnt = 0;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
 bool task_node::cv_task( int flag)
 {    
     ctrl.CV_flag = flag;//启动视觉控制
     ctrl.SEND_flag = 0; 
-
-
     //cv识别到的已经默认发送
     task_pub.publish(ctrl);
     ROS_INFO("pub:CV_task");
@@ -138,15 +153,13 @@ bool task_node::send_task(int send_num)
     ctrl.SEND_flag = send_num;//启动航点控制
     task_pub.publish(ctrl);
     ROS_INFO("pub:SEND_task");
-    if(ctrl.Finish_flag == 0){
+    if(ctrl.Finishcv_flag == 0){
     return false;
     }
     else{
     ROS_INFO("FINISH:SEND_task");
     return true;
     }
-
-
 }
 
 int task_node::nav_land_task(void)
@@ -170,18 +183,34 @@ bool task_node::nav_takeoff_task(void)
 
 }
 
-bool task_node::access(int flag)
+bool task_node::access(int flag,int deepth)
 {
+    static float last_x =  0;
+    static int flag_x = 0;
     clear_flag();
+
     ctrl.CV_flag = flag;//启动视觉控制   自给
-    ctrl.SEND_flag = 0; 
+    ctrl.SEND_flag = 0;
+
+    if(flag)
+    {
+        flag_x = 1;
+    } 
+
+    if(flag_x)
+    {
+        flag_x = 0;
+        last_x = current_pose.pose.position.x;
+    }
     ctrl.vz = 0;
     ctrl.vy = 0;
     ctrl.vx = 0.6;
-    //ctrl.x = 3;
-    clear_flag();
+
     ROS_INFO("pub:access");
+    if(get_targetx(last_x + deepth))
     return true;
+    else
+    return false;
 
 }
 void task_node::task_spin(void)
@@ -205,8 +234,8 @@ void task_node::clear_flag(void)
     ctrl.vy= 0.0;
     ctrl.vz= 0.0;
     ctrl.yaw = 0.0;
+    ROS_INFO("clear flag");
 }
-
 
 int main(int argc, char **argv)
 {
@@ -235,7 +264,6 @@ int main(int argc, char **argv)
 */
 
 #if USE_ENABLE == 0
-
 
 while(ros::ok()){
     switch (processflag)
@@ -296,7 +324,7 @@ while (ros::ok())
         rate.sleep();
     }
     
-    cv_task(1);
+    task.nav_land_task();
     task.pub();
     task.task_spin();
     rate.sleep();

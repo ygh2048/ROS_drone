@@ -75,17 +75,14 @@ void task_cb(const ctrl_msgs::command::ConstPtr& msg)
 {
 	get_ctrl = *msg;
 
-    if (get_ctrl.Land_flag == 1) //不会被置零
-	{
-		end_flag = 1;
-    }
-
 	if (get_ctrl.Takeoff_flag == 1) //不会被置零
 	{
 		start_flag = 1;
     }
-	
-
+    if (get_ctrl.Land_flag == 1) //不会被置零
+	{
+		end_flag = 1;
+    }
 
 	if(get_ctrl.CV_flag == 1)
 	{
@@ -104,7 +101,7 @@ void choose_target(int check_flag)
 	if(check_flag== 1 )//视觉
 	{
 		current_goal.velocity.x = get_ctrl.vx;//位置
-		current_goal.velocity.y = get_ctrl.vy;
+		current_goal.velocity.y	= get_ctrl.vy;
 		current_goal.velocity.z = get_ctrl.vz;
 		current_goal.yaw_rate = get_ctrl.yaw;
 	}
@@ -118,7 +115,6 @@ void choose_target(int check_flag)
 	}
 
 }
-
 
 int main(int argc, char **argv)
 {
@@ -156,13 +152,6 @@ int main(int argc, char **argv)
 			rate.sleep();
 		}
 
-
-	while(ros::ok() && !start_flag)//等待起飞指令
-		{
-			ros::spinOnce();
-			rate.sleep();
-		}
-
 			//------------------------------------------这一段用来起飞的，高度1米，过后rviz打点后直接订阅前面的速度控制回调函数
 	current_goal.coordinate_frame = mavros_msgs::PositionTarget::FRAME_LOCAL_NED;//相对坐标
 	current_goal.type_mask = velocity_mask;
@@ -183,12 +172,23 @@ int main(int argc, char **argv)
 
 	ros::Time last_request = ros::Time::now();
 			//send a few setpoints before starting
+
+	while(ros::ok() && start_flag == 0)
+	{
+				ros::spinOnce();
+				rate.sleep();
+	}
+
+
 	for(int i = 100; ros::ok() && i > 0; --i)
 			{
 				local_pos_pub.publish(current_goal);
 				ros::spinOnce();
 				rate.sleep();
 			}
+
+
+
 
 	while(ros::ok() && rc_value>900 && rc_value<1150 && end_flag==0) //需要把遥控器通道置于900-1150之间才可以进入导航规划控制，数值的来源可以从/mavros/rc/in话题查看
 		{
@@ -212,11 +212,13 @@ int main(int argc, char **argv)
 							last_request = ros::Time::now();
 					}
 				}
+
+
+
 			local_pos_pub.publish(current_goal);
 			//ROS_INFO("vel.x = %0.2f   vel.y = %0.2f  pos.z = %0.2f\n",current_goal.velocity.x,current_goal.velocity.y,current_goal.position.z);
 			ros::spinOnce();
 			rate.sleep();
-
 
 			if(end_flag==1)
 			break;
@@ -241,7 +243,6 @@ int main(int argc, char **argv)
 	ros::spinOnce();//调用回调函数
 	rate.sleep();
 	}
-
 
 	//ros::shutdown();关闭节点
 	return 0;
