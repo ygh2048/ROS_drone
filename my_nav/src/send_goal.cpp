@@ -43,9 +43,9 @@ void clear_flag(void)
     send_ctrl_flag.SEND_flag = 0;  
     send_ctrl_flag.Finishsend_flag = 0;
 
-    send_ctrl_flag.x= 0.0;
-    send_ctrl_flag.y= 0.0;
-    send_ctrl_flag.z= 0.0;
+    send_ctrl_flag.vx= 0.0;
+    send_ctrl_flag.vy= 0.0;
+    send_ctrl_flag.vz= 0.0;
     send_ctrl_flag.yaw = 0.0;
 
 }
@@ -60,7 +60,7 @@ typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>  MoveBaseC
 move_base_msgs::MoveBaseGoal goal;
 
 
-int nav_points_task(MoveBaseClient& ac,int first,int last)
+bool nav_points_task(MoveBaseClient& ac,int first,int last)
 {
 		for (int i = first; i < last; i++) {
         goal.target_pose.pose.position.x = work_waypoints_table[0][i];
@@ -77,12 +77,12 @@ int nav_points_task(MoveBaseClient& ac,int first,int last)
 			clear_flag();
 			send_ctrl_flag.Finishsend_flag = 1;
 			send_task_pub.publish(send_ctrl_flag);
-			return 1;
+			return true;
 
         } else {
             ROS_INFO("The base failed to reach goal %d", i);
             process_flag[i] = 2; // 标记为失败
-			return 0 ;
+			return false ;
         }
     }
 
@@ -121,8 +121,7 @@ int main(int argc, char** argv)
 {
 	switch (processflag)
 	{
-	case 0/* constant-expression */:
-		/* code */
+	case 0:
 		break;
 	case 1/* constant-expression */:
 		/* code */
@@ -131,29 +130,19 @@ int main(int argc, char** argv)
 		ros::spinOnce();//调用回调函数
 		nav_points_task(ac,0,3);
 		send_task_pub.publish(send_ctrl_flag);
-		get_ctrl_flag.SEND_flag=0;
+		clear_flag();
 		}
-		break;	
+		break;
 	case 2/* constant-expression */:
 		/* code */
 		if(get_ctrl_flag.SEND_flag)
 		{
 		ros::spinOnce();//调用回调函数
-		nav_points_task(ac,3,6);
+		nav_points_task(ac,0,3);
 		send_task_pub.publish(send_ctrl_flag);
-		get_ctrl_flag.SEND_flag=0;
+		clear_flag();
 		}
-		break;
-	case 3/* constant-expression */:
-		/* code */
-		if(get_ctrl_flag.SEND_flag)
-		{
-		ros::spinOnce();//调用回调函数
-		nav_points_task(ac,6,9);
-		send_task_pub.publish(send_ctrl_flag);
-		get_ctrl_flag.SEND_flag=0;
-		}
-		break;
+		break;	
 	default:
 		break;
 	}
@@ -172,5 +161,3 @@ int main(int argc, char** argv)
 return 0;
 
 }
-
-

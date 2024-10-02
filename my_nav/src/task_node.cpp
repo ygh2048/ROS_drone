@@ -15,92 +15,84 @@ geometry_msgs::PoseStamped current_pose;//获取当前坐标
 
 int processflag=0;//进度flag
 
-ctrl_msgs::command get_msg[3];//获取消息
-ctrl_msgs::command ctrl;//自定义控制消息
 
-void pose_cb(const geometry_msgs::PoseStamped::ConstPtr& msg) {
-    current_pose = *msg;  // 更新当前位置信息
-}
-void state_cb(const mavros_msgs::State::ConstPtr& msg){
-    current_state = *msg; // 更新当前控制信息
-}
-void send_task_cb(const ctrl_msgs::command::ConstPtr& msg)
-{
-    get_msg[0] = *msg;//更新航点信息
-    ctrl.Finishsend_flag = get_msg[0].Finishsend_flag;
-}
-
-void cv_task_cb(const ctrl_msgs::command::ConstPtr& msg)
-{
-    get_msg[1] = *msg;//更新CV信息
-
-    ctrl.vx = get_msg[1].vx;
-    ctrl.vy = get_msg[1].vy;
-    ctrl.vz = get_msg[1].vz;
-    ctrl.yaw = get_msg[1].yaw;
-    ctrl.Finishcv_flag = get_msg[1].Finishcv_flag;  
-}
-
-void nav_task_cb(const ctrl_msgs::command::ConstPtr& msg)
-{
-    get_msg[2] = *msg;//更新NAV信息
-}
-
-void clear_flag(ctrl_msgs::command ctrl)
-{
-    ctrl.Land_flag = 0;
-    ctrl.Takeoff_flag = 0; 
-    ctrl.Process_flag = 0;
-
-    ctrl.CV_flag = 0;
-    ctrl.Finishcv_flag = 0;  
-    ctrl.SEND_flag = 0;  
-    ctrl.Finishsend_flag = 0;
-
-    ctrl.vx= 0.0;
-    ctrl.vy= 0.0;
-    ctrl.vz= 0.0;
-    ctrl.yaw = 0.0;
-}
 
 class task_node
 {
 private:
     /* data */
-    ros::NodeHandle nh;
+
+    ctrl_msgs::command get_msg[3];//获取消息
+    ctrl_msgs::command ctrl;//自定义控制消息
     ros::Publisher task_pub;
+    ros::Subscriber pose_sub;
+    ros::Subscriber state_sub;
+    ros::Subscriber nav_task_sub;
+    ros::Subscriber send_task_sub;
+    ros::Subscriber cv_task_sub;
 
     bool get_targetheight( float height);
+    void pose_cb(const geometry_msgs::PoseStamped::ConstPtr& msg) {
+    current_pose = *msg;  // 更新当前位置信息
+    }
+    void state_cb(const mavros_msgs::State::ConstPtr& msg){
+    current_state = *msg; // 更新当前控制信息
+    }
+    void nav_task_cb(const ctrl_msgs::command::ConstPtr& msg)
+    {get_msg[2] = *msg;//更新NAV信息
+    }
+    void send_task_cb(const ctrl_msgs::command::ConstPtr& msg)
+    {
+    get_msg[0] = *msg;//更新航点信息
+    ctrl.Finishsend_flag = get_msg[0].Finishsend_flag;
+    }
+    void cv_task_cb(const ctrl_msgs::command::ConstPtr& msg)
+    {get_msg[1] = *msg;//更新CV信息
+    ctrl.vx = get_msg[1].vx;
+    ctrl.vy = get_msg[1].vy;
+    ctrl.vz = get_msg[1].vz;
+    ctrl.yaw = get_msg[1].yaw;
+    ctrl.Finishcv_flag = get_msg[1].Finishcv_flag;}
+
+
+    
+public:
+    task_node(ros::NodeHandle& nh);
+    ~task_node();
+
     bool cv_task( int flag);
-    int send_task( int send_num);
+    bool send_task( int send_num);
     int nav_land_task(void);
     bool nav_takeoff_task(void);
-    bool access(void);
-public:
-    task_node(/* args */);
-    ~task_node();
+    bool access(int flag);  
+    void task_spin(void);
+    void clear_flag(void);
+    void pub(void)
+{
+    task_node::task_pub.publish(ctrl);
+}
 };
 
-task_node::task_node(/* args */)
+task_node::task_node(ros::NodeHandle& nh)
 {
     ROS_INFO("create task");
 
-    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 10, pose_cb);
-    ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("mavros/state", 10, state_cb);
+    pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 10, &task_node::pose_cb, this);
+    state_sub = nh.subscribe<mavros_msgs::State>("mavros/state", 10, &task_node::state_cb, this);
+    nav_task_sub = nh.subscribe<ctrl_msgs::command>("task/nav_to_task", 10, &task_node::nav_task_cb, this);
+    send_task_sub = nh.subscribe<ctrl_msgs::command>("task/send_task", 10, &task_node::send_task_cb, this);
+    cv_task_sub = nh.subscribe<ctrl_msgs::command>("task/cv_task", 10, &task_node::cv_task_cb, this);
 
-    ros::Subscriber send_task_sub = nh.subscribe<ctrl_msgs::command>("task/send_to_task",10,send_task_cb);
-    ros::Subscriber cv_task_sub = nh.subscribe<ctrl_msgs::command>("task/cv_to_task",10,cv_task_cb);
-    ros::Subscriber nav_task_sub = nh.subscribe<ctrl_msgs::command>("task/nav_to_task",10,nav_task_cb);
+	task_pub = nh.advertise<ctrl_msgs::command>("task/task_pub",1);
 
+    ROS_INFO("creat over");
 
-	ros::Publisher task_pub = nh.advertise<ctrl_msgs::command>("task/task_pub",1);
 }
 
 task_node::~task_node()
 {
     ROS_INFO("end task");  
 }
-
 
 
 bool task_node::get_targetheight( float height)
@@ -117,7 +109,7 @@ bool task_node::get_targetheight( float height)
     }
     else
     {
-        return false
+        return false;
     }
 }
 
@@ -140,18 +132,18 @@ bool task_node::cv_task( int flag)
 
 }
 
-int task_node::send_task( int send_num)
+bool task_node::send_task(int send_num)
 {
     ctrl.CV_flag = 0;
     ctrl.SEND_flag = send_num;//启动航点控制
     task_pub.publish(ctrl);
     ROS_INFO("pub:SEND_task");
-    if(ctrl.Finishcv_flag == 0){
-    return 0;
+    if(ctrl.Finish_flag == 0){
+    return false;
     }
     else{
     ROS_INFO("FINISH:SEND_task");
-    return 1;
+    return true;
     }
 
 
@@ -159,7 +151,7 @@ int task_node::send_task( int send_num)
 
 int task_node::nav_land_task(void)
 {
-    clear_flag(ctrl);
+    clear_flag();
     ctrl.Land_flag = 1;//降落指令
     task_pub.publish(ctrl);
     ROS_INFO("pub:land");
@@ -168,7 +160,7 @@ int task_node::nav_land_task(void)
 
 bool task_node::nav_takeoff_task(void)
 {
-    clear_flag(ctrl);
+    clear_flag();
     ctrl.Takeoff_flag = 1;//起飞指令
     task_pub.publish(ctrl);
     ROS_INFO("pub:takeoff");
@@ -178,34 +170,61 @@ bool task_node::nav_takeoff_task(void)
 
 }
 
-bool task_node::access(void)
+bool task_node::access(int flag)
 {
-    clear_flag(ctrl);
+    clear_flag();
     ctrl.CV_flag = flag;//启动视觉控制   自给
     ctrl.SEND_flag = 0; 
     ctrl.vz = 0;
     ctrl.vy = 0;
     ctrl.vx = 0.6;
     //ctrl.x = 3;
-    stask_pub.publish(ctrl);
+    clear_flag();
     ROS_INFO("pub:access");
+    return true;
 
 }
+void task_node::task_spin(void)
+{
+        ros::spinOnce();
+
+}
+
+void task_node::clear_flag(void)
+{
+    ctrl.Land_flag = 0;
+    ctrl.Takeoff_flag = 0; 
+    ctrl.Process_flag = 0;
+
+    ctrl.CV_flag = 0;
+    ctrl.Finishcv_flag = 0;  
+    ctrl.SEND_flag = 0;  
+    ctrl.Finishsend_flag = 0;
+
+    ctrl.vx= 0.0;
+    ctrl.vy= 0.0;
+    ctrl.vz= 0.0;
+    ctrl.yaw = 0.0;
+}
+
 
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "task_node");
-    
-    task_node task;
-
-    //the setpoint publishing rate MUST be faster than 2Hz
+    ros::NodeHandle nh;
+    task_node task(nh);
     ros::Rate rate(20.0);
 
+    //the setpoint publishing rate MUST be faster than 2Hz
+
+    ROS_INFO("to connect px4");
     // wait for FCU connection
     while(ros::ok() && !current_state.connected){
-        ros::spinOnce();
-        rate.sleep();
+    task.task_spin();
+    rate.sleep();
     }
+
+    ROS_INFO("connected px4");
 /** 
     geometry_msgs::PoseStamped pose;
     pose.pose.position.x = 0;
@@ -222,23 +241,23 @@ while(ros::ok()){
     switch (processflag)
         {
         case 0:
-            if(task.nav_takeoff_task())
+            if(task.send_task(1))
             {
-                clear_flag(ctrl);
+                task.clear_flag();
                 processflag++;
             }
             break;
         case 1:
             if(task.cv_task(1))
             {
-                clear_flag(ctrl);
+                task.clear_flag();
                 processflag++;
             }
             break;
         case 2:
             if(task.send_task(1))
             {
-                clear_flag(ctrl);
+                task.clear_flag();
                 processflag++;
             }
             break;
@@ -246,18 +265,18 @@ while(ros::ok()){
         case 3:
             if(task.cv_task(1))
             {
-                clear_flag(ctrl);
+                task.clear_flag();
                 processflag++;
             }
             break;
         default:
-            clear_flag(ctrl);
-            task.nav_land_task();
+                task.clear_flag();
+                task.nav_land_task();
             break;
         }
 
-        task.task_pub.publish(ctrl);
-        ros::spinOnce();
+        task.pub();
+        task.task_spin();
         rate.sleep();
     }
 #endif
@@ -273,14 +292,13 @@ while (ros::ok())
 {
     while(!task.nav_takeoff_task() && ros::ok())
     {
-    ros::spinOnce();
-    rate.sleep();
+        task.task_spin();
+        rate.sleep();
     }
     
-
     cv_task(1);
-    task.task_pub.publish(ctrl);
-    ros::spinOnce();
+    task.pub();
+    task.task_spin();
     rate.sleep();
 
 }
