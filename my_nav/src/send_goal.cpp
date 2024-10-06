@@ -23,8 +23,6 @@ const float work_waypoints_table[2][12]={
 {0,-0.5,-0.5, 0, 0, 0, 0, 0, 0, 0, 0,  0} //纵坐标Y
 };
 
-int process_flag[3]={0,0,0};
-
 int processflag = 0;
 
 ctrl_msgs::command get_ctrl_flag;
@@ -71,7 +69,6 @@ bool nav_points_task(MoveBaseClient& ac,int first,int last)
 
         if (ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED) {
             ROS_INFO("You have reached the goal %d", i);
-            process_flag[i] = 1; // 标记为成功
 			clear_flag();
 			send_ctrl_flag.Finishsend_flag = 1;
 			send_task_pub.publish(send_ctrl_flag);
@@ -79,7 +76,6 @@ bool nav_points_task(MoveBaseClient& ac,int first,int last)
 
         } else {
             ROS_INFO("The base failed to reach goal %d", i);
-            process_flag[i] = 2; // 标记为失败
 			return false ;
         }
     }
@@ -114,12 +110,14 @@ int main(int argc, char** argv)
 	goal.target_pose.header.stamp = ros::Time::now();
 	//goal.target_pose.pose.position.z = 1;
 	goal.target_pose.pose.orientation.w = -1;
+	
 	ROS_INFO("");
 	while(ros::ok())
 {
 	switch (processflag)
 	{
 	case 0:
+		//默认空循环
 		break;
 	case 1/* constant-expression */:
 		/* code */
@@ -136,7 +134,7 @@ int main(int argc, char** argv)
 		if(get_ctrl_flag.SEND_flag)
 		{
 		ros::spinOnce();//调用回调函数
-		nav_points_task(ac,0,3);
+		nav_points_task(ac,3,6);
 		send_task_pub.publish(send_ctrl_flag);
 		clear_flag();
 		}

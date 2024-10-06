@@ -269,7 +269,7 @@ while(ros::ok()){
     switch (processflag)
         {
         case 0:
-            if(task.nav_takeoff_task();)
+            if(task.nav_takeoff_task())
             {
                 task.clear_flag();
                 processflag++;
