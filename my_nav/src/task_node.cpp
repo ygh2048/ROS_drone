@@ -97,11 +97,11 @@ task_node::~task_node()
 bool task_node::get_targetheight( float height)
 {
     static int cnt = 0;
-    if(abs(current_pose.pose.position.z-height)<0.05 &&cnt < 10)
+    if(abs(current_pose.pose.position.z-height)<0.08 &&cnt < 7)
     {
     cnt ++ ;
     }
-    if(cnt >=10)
+    if(cnt >=7)
     {
         cnt = 0;
         return true;
@@ -115,11 +115,11 @@ bool task_node::get_targetheight( float height)
 bool task_node::get_targetx(float x)
 {
     static int cnt = 0;
-    if(abs(current_pose.pose.position.x-x)<0.05 &&cnt < 10)
+    if(abs(current_pose.pose.position.x-x)<0.15 &&cnt < 5)
     {
     cnt ++ ;
     }
-    if(cnt >=10)
+    if(cnt >=5)
     {
         cnt = 0;
         return true;
@@ -269,46 +269,34 @@ while(ros::ok()){
     switch (processflag)
         {
         case 0:
-            if(task.send_task(1))
+            if(task.nav_takeoff_task();)
             {
                 task.clear_flag();
                 processflag++;
             }
             break;
         case 1:
-            if(task.cv_task(1))
-            {
-                task.clear_flag();
-                processflag++;
-            }
-            break;
-        case 2:
             if(task.send_task(1))
             {
                 task.clear_flag();
                 processflag++;
             }
             break;
-
-        case 3:
-            if(task.cv_task(1))
+        case 2:
+            if(task.access(1,1))
             {
                 task.clear_flag();
                 processflag++;
             }
-            break;
         default:
                 task.clear_flag();
                 task.nav_land_task();
             break;
         }
-
-        task.pub();
         task.task_spin();
         rate.sleep();
     }
 #endif
-
 
 #if USE_ENABLE == 1
 
@@ -325,7 +313,6 @@ while (ros::ok())
     }
     
     task.nav_land_task();
-    task.pub();
     task.task_spin();
     rate.sleep();
 
