@@ -19,7 +19,7 @@ geometry_msgs::PoseStamped current_pose;
 ros::Publisher send_task_pub;
 
 const float work_waypoints_table[2][12]={
-{0.5 ,0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0,  0},//横坐标X
+{0.6 ,0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0},//横坐标X
 {0,-0.5,-0.5, 0, 0, 0, 0, 0, 0, 0, 0,  0} //纵坐标Y
 };
 
@@ -59,8 +59,11 @@ move_base_msgs::MoveBaseGoal goal;
 bool nav_points_task(MoveBaseClient& ac,int first,int last)
 {
 		for (int i = first; i < last; i++) {
+		goal.target_pose.header.frame_id = "map";
+		goal.target_pose.header.stamp = ros::Time::now();
         goal.target_pose.pose.position.x = work_waypoints_table[0][i];
         goal.target_pose.pose.position.y = work_waypoints_table[1][i];
+		goal.target_pose.pose.orientation.w = -1;
 		goal.target_pose.header.stamp = ros::Time::now();
         ROS_INFO("Sending goal %d", i);
 
@@ -124,7 +127,7 @@ int main(int argc, char** argv)
 		if(get_ctrl_flag.SEND_flag)
 		{
 		ros::spinOnce();//调用回调函数
-		nav_points_task(ac,0,3);
+		nav_points_task(ac,0,4);
 		send_task_pub.publish(send_ctrl_flag);
 		clear_flag();
 		}
@@ -134,7 +137,7 @@ int main(int argc, char** argv)
 		if(get_ctrl_flag.SEND_flag)
 		{
 		ros::spinOnce();//调用回调函数
-		nav_points_task(ac,3,6);
+		nav_points_task(ac,4,6);
 		send_task_pub.publish(send_ctrl_flag);
 		clear_flag();
 		}
@@ -154,5 +157,3 @@ int main(int argc, char** argv)
 return 0;
 
 }
-
-

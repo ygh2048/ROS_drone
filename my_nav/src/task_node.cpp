@@ -6,7 +6,7 @@
 #include <ctrl_msgs/command.h>
 
 
-#define USE_ENABLE    1 //选择代码类型
+#define USE_ENABLE    0 //选择代码类型
 
 #define TARGET_Z      1
 
@@ -63,7 +63,7 @@ public:
     bool send_task( int send_num);
     int nav_land_task(void);
     bool nav_takeoff_task(void);
-    bool access(int flag,int deepth);
+    bool access(int flag,float deepth);
     void task_spin(void);
     void clear_flag(void);
     void pub(void)
@@ -183,7 +183,7 @@ bool task_node::nav_takeoff_task(void)
 
 }
 
-bool task_node::access(int flag,int deepth)
+bool task_node::access(int flag,float deepth)
 {
     static float last_x =  0;
     static int flag_x = 0;
@@ -287,6 +287,7 @@ while(ros::ok()){
             {
                 task.clear_flag();
                 processflag++;
+
             }
         default:
                 task.clear_flag();
