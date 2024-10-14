@@ -22,15 +22,15 @@ class task_node
 private:
     /* data */
 
-    ctrl_msgs::command get_msg[3];//获取消息
-    ctrl_msgs::command ctrl;//自定义控制消息
+    ctrl_msgs::command get_msg[3];//获取消息数组
+    ctrl_msgs::command ctrl;//自定义控制消息，发布接受共用 仅仅类中可用
     ros::Publisher task_pub;
     ros::Subscriber pose_sub;
     ros::Subscriber state_sub;
     ros::Subscriber nav_task_sub;
     ros::Subscriber send_task_sub;
     ros::Subscriber cv_task_sub;
-
+//一些定义
     bool get_targetheight(float height);
     bool get_targetx(float x);
     void pose_cb(const geometry_msgs::PoseStamped::ConstPtr& msg) {
@@ -43,15 +43,11 @@ private:
     void send_task_cb(const ctrl_msgs::command::ConstPtr& msg)
     {
     get_msg[0] = *msg;//更新航点信息
-    ctrl.Finishsend_flag = get_msg[0].Finishsend_flag;
+    ctrl.Finishsend_flag = get_msg[0].Finishsend_flag;//只置位结束标志，不影响其他ctrl信息
     }
     void cv_task_cb(const ctrl_msgs::command::ConstPtr& msg)
     {get_msg[1] = *msg;//更新CV信息
-
-    ctrl.vy = get_msg[1].vy;
-    ctrl.vz = get_msg[1].vz;
-    ctrl.yaw = get_msg[1].yaw;
-    ctrl.Finishcv_flag = get_msg[1].Finishcv_flag;}
+    }
     
     void nav_task_cb(const ctrl_msgs::command::ConstPtr& msg)
     {get_msg[2] = *msg;//更新NAV信息
@@ -98,7 +94,7 @@ task_node::~task_node()
 bool task_node::get_targetheight( float height)
 {
     static int cnt = 0;
-    if(abs(current_pose.pose.position.z-height)<0.1 &&cnt < 5)//高度到达目标高度附近0.1m
+    if(abs(current_pose.pose.position.z-height)<0.1 &&cnt < 5)//高度到达目标高度附近0.1m以内，且刷新5次皆在
     {
     cnt ++ ;
     }
@@ -116,7 +112,7 @@ bool task_node::get_targetheight( float height)
 bool task_node::get_targetx(float x)
 {
     static int cnt = 0;
-    if(abs(current_pose.pose.position.x-x)<0.12 &&cnt < 5)//
+    if(abs(current_pose.pose.position.x-x)<0.1 &&cnt < 5)//现在位置距离规划前进位置在0.1m以内 且刷新5次皆在
     {
     cnt ++ ;
     }
@@ -135,10 +131,14 @@ bool task_node::cv_task( int flag)
 {    
     ctrl.CV_flag = flag;//启动视觉控制
     ctrl.SEND_flag = 0; 
-    //cv识别到的已经默认发送
-    task_pub.publish(ctrl);
+    //VX不进行提供，为前进速度
+    ctrl.vy = get_msg[1].vy;
+    ctrl.vz = get_msg[1].vz;
+    ctrl.yaw = get_msg[1].yaw;//偏航角
+    ctrl.Finishcv_flag = get_msg[1].Finishcv_flag;
+    task_pub.publish(ctrl);//发布ctrl消息
     ROS_INFO("pub:CV_task");
-    if(ctrl.Finishcv_flag == 0){
+    if(ctrl.Finishcv_flag == 0){//判断结束标志
     return false;
     }
     else{
@@ -151,10 +151,10 @@ bool task_node::cv_task( int flag)
 bool task_node::send_task(int send_num)
 {
     ctrl.CV_flag = 0;
-    ctrl.SEND_flag = send_num;//启动航点控制
+    ctrl.SEND_flag = send_num;//启动航点控制 send_num表示在第几个航点
     task_pub.publish(ctrl);
     ROS_INFO("pub:SEND_task");
-    if(ctrl.Finishcv_flag == 0){
+    if(ctrl.Finishcv_flag == 0){//判断结束标志
     return false;
     }
     else{
@@ -186,11 +186,11 @@ bool task_node::nav_takeoff_task(void)
 
 bool task_node::access(int flag,float deepth)
 {
-    static float last_x =  0;
-    static int flag_x = 0;
+    static float last_x =  0;//设置静态变量,记录位置信息
+    static int flag_x = 0;//设置静态变量
     clear_flag();
 
-    ctrl.CV_flag = flag;//启动视觉控制   自给
+    ctrl.CV_flag = flag;//启动视觉控制   自给   flagcv的模式
     ctrl.SEND_flag = 0;
 
     if(flag)
@@ -205,7 +205,7 @@ bool task_node::access(int flag,float deepth)
     }
     ctrl.vz = 0;
     ctrl.vy = 0;
-    ctrl.vx = 0.6;
+    ctrl.vx = 0.6;//前进速度
 
     ROS_INFO("pub:access");
     if(get_targetx(last_x + deepth))
@@ -242,14 +242,14 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "task_node");
     ros::NodeHandle nh;
-    task_node task(nh);
+    task_node task(nh);//初始化整个类
     ros::Rate rate(20.0);
 
     //the setpoint publishing rate MUST be faster than 2Hz
 
     ROS_INFO("to connect px4");
     // wait for FCU connection
-    while(ros::ok() && !current_state.connected){
+    while(ros::ok() && !current_state.connected){//等待px4回应，确保通信
     task.task_spin();
     rate.sleep();
     }
@@ -264,16 +264,16 @@ int main(int argc, char **argv)
     ros::Time last_request = ros::Time::now();
 */
 
-#if USE_ENABLE == 0
+#if USE_ENABLE == 0     //本定义用作正式代码
 
 while(ros::ok()){
-    switch (processflag)
+    switch (processflag)//processflag 决定任务进程
         {
         case 0:
             if(task.nav_takeoff_task())
             {
                 task.clear_flag();
-                processflag++;
+                processflag++;//进入下一个线程
             }
             break;
         case 1:
@@ -308,21 +308,21 @@ while(ros::ok()){
     }
 #endif
 
-#if USE_ENABLE == 1
+#if USE_ENABLE == 1   //本定义用作测试
 
-task.nav_takeoff_task();
+task.nav_takeoff_task();//起飞
 
 
 while (ros::ok())
 {
-    while(!task.nav_takeoff_task() && ros::ok())
+    while(!task.nav_takeoff_task() && ros::ok())//当起飞结束后跳出循环，进入下一步
     {
         task.task_spin();
         rate.sleep();
     }
 
     
-    task.clear_flag();
+    task.clear_flag();//标志清楚函数，避免以前使用的flag未被置位影响到后续发布
     task.task_spin();
     rate.sleep();
     task.cv_task(1);

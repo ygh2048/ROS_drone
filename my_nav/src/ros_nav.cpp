@@ -84,7 +84,7 @@ void task_cb(const ctrl_msgs::command::ConstPtr& msg)
 		end_flag = 1;
     }
 
-	if(get_ctrl.CV_flag == 1)
+	if(get_ctrl.CV_flag == 1)//使得checkflag在1或者0变换，那么要么多航点控制要么视觉控制
 	{
 		check_flag = 1;
 	}
@@ -100,17 +100,16 @@ void choose_target(int check)
 {
 	if(check_flag== 1 )//视觉
 	{
-		current_goal.velocity.x = get_ctrl.vx;//位置
+		current_goal.velocity.x = get_ctrl.vx;//速度
 		current_goal.velocity.y	= get_ctrl.vy;
 		current_goal.velocity.z = get_ctrl.vz;
 		current_goal.yaw_rate = get_ctrl.yaw;
 	}
 	else if(check_flag == 0)//航点
 	{
-		current_goal.coordinate_frame = temp_goal.coordinate_frame;
-		current_goal.type_mask = temp_goal.type_mask;
 		current_goal.velocity.x = temp_goal.velocity.x;//速度
 		current_goal.velocity.y = temp_goal.velocity.y;		
+
 		current_goal.yaw_rate = temp_goal.yaw_rate;	
 	}
 
@@ -124,7 +123,7 @@ int main(int argc, char **argv)
 	ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>
 	("mavros/state", 10, state_cb);
 	ros::Publisher local_pos_pub = nh.advertise<mavros_msgs::PositionTarget>
-	("mavros/setpoint_raw/local", 1);
+	("mavros/setpoint_raw/local", 1);//发布给px4的具体控制信息
 	ros::Publisher vision_pos_pub = nh.advertise<geometry_msgs::PoseStamped>
 	("mavros/vision_pose/pose", 1);
 	ros::Subscriber rc_sub=nh.subscribe<mavros_msgs::RCIn>
@@ -179,7 +178,7 @@ int main(int argc, char **argv)
 				rate.sleep();
 	}
 
-
+	ROS_INFO("开始起飞");	
 	for(int i = 100; ros::ok() && i > 0; --i)
 			{
 				local_pos_pub.publish(current_goal);

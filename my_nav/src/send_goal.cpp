@@ -56,7 +56,7 @@ typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>  MoveBaseC
 
 
 
-bool nav_points_task(MoveBaseClient& ac,int num,move_base_msgs::MoveBaseGoal goal)
+bool nav_points_task(MoveBaseClient& ac,int num,move_base_msgs::MoveBaseGoal goal)//ac,goal为传入的局部变量，num为航点在数组中的位置
 {
 		goal.target_pose.header.frame_id = "map";
 		goal.target_pose.header.stamp = ros::Time::now();
@@ -65,8 +65,7 @@ bool nav_points_task(MoveBaseClient& ac,int num,move_base_msgs::MoveBaseGoal goa
 		goal.target_pose.pose.position.z = 1;
 		goal.target_pose.pose.orientation.w = -1;
 		ROS_INFO("sending---------------------------");	
-        ac.sendGoal(goal);
-
+        ac.sendGoal(goal);//发送多航点到nav进行控制
 		ROS_INFO("sending///////////////////////////");		
         ac.waitForResult();
 
@@ -87,6 +86,8 @@ bool nav_points_task(MoveBaseClient& ac,int num,move_base_msgs::MoveBaseGoal goa
 
 int main(int argc, char** argv) 
 {
+
+	int cnt = 0 ;
 	ros::init(argc, argv, "send_goals_node");
 	ros::NodeHandle nh;
 
@@ -100,7 +101,7 @@ int main(int argc, char** argv)
 	MoveBaseClient ac("move_base", true);
 	// Wait 60 seconds for the action server to become available
 	ROS_INFO("Waiting for the move_base action server");
-	ac.waitForServer(ros::Duration(60));
+	ac.waitForServer(ros::Duration(40));//设定航点到达超时时间
 	ROS_INFO("Connected to move base server");
 	// Send a goal to move_base
 	//目标的属性设置
@@ -116,13 +117,17 @@ int main(int argc, char** argv)
 	{
 	case 0:
 		//默认空循环
+		cnt ++;
+		cnt %= 40;//通过cnt控制process发送频率，避免刷屏
+		if(cnt == 39)//标识当前process
+			ROS_INFO("processflag %d", processflag);
 		break;
 	case 1/* constant-expression */:
 		/* code */
 		if(get_ctrl_flag.SEND_flag)
 		{
 		ros::spinOnce();//调用回调函数
-		nav_points_task(ac,0,goal);
+		nav_points_task(ac,0,goal);//见形参
 		send_task_pub.publish(send_ctrl_flag);
 		clear_flag();
 		}
@@ -172,8 +177,10 @@ int main(int argc, char** argv)
 		break;
 	}
 	ros::spinOnce();//调用回调函数
-	ROS_INFO("processflag %d", processflag);
-	if(get_ctrl_flag.SEND_flag != 0)
+
+	if(processflag != 0)//标识当前process
+{ROS_INFO("processflag %d", processflag);}
+	if(get_ctrl_flag.SEND_flag != 0)//通过订阅task_node发布的信息决定飞行的哪一个航点，当不飞行航点时置0，不允许（运行空）
 	{
 	processflag = get_ctrl_flag.SEND_flag;
 	}
