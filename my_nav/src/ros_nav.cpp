@@ -155,7 +155,7 @@ int main(int argc, char **argv)
 			//------------------------------------------这一段用来起飞的，高度1米，过后rviz打点后直接订阅前面的速度控制回调函数
 	current_goal.coordinate_frame = mavros_msgs::PositionTarget::FRAME_LOCAL_NED;//相对坐标
 	current_goal.type_mask = velocity_mask;
-	current_goal.position.z = 1;
+	current_goal.position.z = 1.1;
 			//-------------------------------------------
 
 	mavros_msgs::SetMode offb_set_mode;
