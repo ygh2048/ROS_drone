@@ -96,7 +96,7 @@ void task_cb(const ctrl_msgs::command::ConstPtr& msg)
 	//选择航点来源
 }
 
-void choose_target(int check_flag)
+void choose_target(int check)
 {
 	if(check_flag== 1 )//视觉
 	{
@@ -140,7 +140,7 @@ int main(int argc, char **argv)
 
 
 	ros::Subscriber sub = nh.subscribe<ctrl_msgs::command>
-	("task/task_pub", 1, task_cb); //订阅task
+	("task/task_pub", 10, task_cb); //订阅task
 
 			//the setpoint publishing rate MUST be faster than 2Hz
 	ros::Rate rate(20.0);
@@ -212,9 +212,7 @@ int main(int argc, char **argv)
 							last_request = ros::Time::now();
 					}
 				}
-
-
-
+			choose_target(check_flag);
 			local_pos_pub.publish(current_goal);
 			//ROS_INFO("vel.x = %0.2f   vel.y = %0.2f  pos.z = %0.2f\n",current_goal.velocity.x,current_goal.velocity.y,current_goal.position.z);
 			ros::spinOnce();

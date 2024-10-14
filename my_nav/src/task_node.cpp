@@ -39,9 +39,7 @@ private:
     void state_cb(const mavros_msgs::State::ConstPtr& msg){
     current_state = *msg; // 更新当前控制信息
     }
-    void nav_task_cb(const ctrl_msgs::command::ConstPtr& msg)
-    {get_msg[2] = *msg;//更新NAV信息
-    }
+
     void send_task_cb(const ctrl_msgs::command::ConstPtr& msg)
     {
     get_msg[0] = *msg;//更新航点信息
@@ -49,12 +47,15 @@ private:
     }
     void cv_task_cb(const ctrl_msgs::command::ConstPtr& msg)
     {get_msg[1] = *msg;//更新CV信息
-    ctrl.vx = get_msg[1].vx;
+
     ctrl.vy = get_msg[1].vy;
     ctrl.vz = get_msg[1].vz;
     ctrl.yaw = get_msg[1].yaw;
     ctrl.Finishcv_flag = get_msg[1].Finishcv_flag;}
     
+    void nav_task_cb(const ctrl_msgs::command::ConstPtr& msg)
+    {get_msg[2] = *msg;//更新NAV信息
+    }
 public:
     task_node(ros::NodeHandle& nh);
     ~task_node();
@@ -97,7 +98,7 @@ task_node::~task_node()
 bool task_node::get_targetheight( float height)
 {
     static int cnt = 0;
-    if(abs(current_pose.pose.position.z-height)<0.1 &&cnt < 5)
+    if(abs(current_pose.pose.position.z-height)<0.1 &&cnt < 5)//高度到达目标高度附近0.1m
     {
     cnt ++ ;
     }
@@ -115,7 +116,7 @@ bool task_node::get_targetheight( float height)
 bool task_node::get_targetx(float x)
 {
     static int cnt = 0;
-    if(abs(current_pose.pose.position.x-x)<0.12 &&cnt < 5)
+    if(abs(current_pose.pose.position.x-x)<0.12 &&cnt < 5)//
     {
     cnt ++ ;
     }
@@ -234,7 +235,7 @@ void task_node::clear_flag(void)
     ctrl.vy= 0.0;
     ctrl.vz= 0.0;
     ctrl.yaw = 0.0;
-    ROS_INFO("clear flag");
+    ROS_INFO("task node clear flag--------------");
 }
 
 int main(int argc, char **argv)
@@ -283,6 +284,14 @@ while(ros::ok()){
             }
             break;
         case 2:
+            if(task.send_task(2))
+            {
+                task.clear_flag();
+                processflag++;
+                
+            }
+            break;
+        case 3:
             if(task.access(1,1))
             {
                 task.clear_flag();
@@ -301,9 +310,8 @@ while(ros::ok()){
 
 #if USE_ENABLE == 1
 
-int cnt = 0;
 task.nav_takeoff_task();
-int skip_flag = 0;
+
 
 while (ros::ok())
 {
@@ -312,10 +320,12 @@ while (ros::ok())
         task.task_spin();
         rate.sleep();
     }
+
     
-    task.cv_task(1);
+    task.clear_flag();
     task.task_spin();
     rate.sleep();
+    task.cv_task(1);
 
 }
 #endif
