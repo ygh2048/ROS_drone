@@ -15,8 +15,6 @@ geometry_msgs::PoseStamped current_pose;//获取当前坐标
 
 int processflag=0;//进度flag
 
-
-
 class task_node
 {
 private:
@@ -33,6 +31,8 @@ private:
 //一些定义
     bool get_targetheight(float height);
     bool get_targetx(float x);
+    bool get_targety(float y);
+    
     void pose_cb(const geometry_msgs::PoseStamped::ConstPtr& msg) {
     current_pose = *msg;  // 更新当前位置信息
     }
@@ -58,15 +58,13 @@ public:
 
     bool cv_task( int flag);
     bool send_task( int send_num);
-    int nav_land_task(void);
+    bool nav_land_task(void);
     bool nav_takeoff_task(void);
     bool access(int flag,float deepth);
     void task_spin(void);
     void clear_flag(void);
     void pub(void)
-{
-    task_node::task_pub.publish(ctrl);
-}
+    {task_node::task_pub.publish(ctrl);}
 };
 
 task_node::task_node(ros::NodeHandle& nh)
@@ -91,43 +89,42 @@ task_node::~task_node()
 }
 
 
-bool task_node::get_targetheight( float height)
+bool task_node::get_targetheight( float height)//高度判断函数
 {
     static int cnt = 0;
-    if(abs(current_pose.pose.position.z-height)<0.1 &&cnt < 5)//高度到达目标高度附近0.1m以内，且刷新5次皆在
-    {
-    cnt ++ ;
-    }
+    if(abs(current_pose.pose.position.z-height)<0.12 &&cnt < 5)//高度到达目标高度附近0.1m以内，且刷新5次皆在
+    {cnt ++ ;}
     if(cnt >=5)
-    {
-        cnt = 0;
-        return true;
-    }
+    {   cnt = 0;
+        return true;}
     else
-    {
-        return false;
-    }
+    {return false;}
 }
 
-bool task_node::get_targetx(float x)
+bool task_node::get_targetx(float x)//目标x判断，x为全局
 {
     static int cnt = 0;
-    if(abs(current_pose.pose.position.x-x)<0.1 &&cnt < 5)//现在位置距离规划前进位置在0.1m以内 且刷新5次皆在
-    {
-    cnt ++ ;
-    }
+    if(abs(current_pose.pose.position.x-x)<0.12 &&cnt < 5)//现在位置距离规划前进位置在0.1m以内 且刷新5次皆在
+    {cnt ++ ;}
     if(cnt >=5)
-    {
-        cnt = 0;
-        return true;
-    }
+    {   cnt = 0;
+        return true;}
     else
-    {
-        return false;
-    }
+    {return false;}
 }
 
-bool task_node::cv_task( int flag)
+bool task_node::get_targety(float y)//目标y判断，y为全局
+{
+    static int cnt = 0;
+    if(abs(current_pose.pose.position.y-y)<0.12 &&cnt < 5)//现在位置距离规划前进位置在0.1m以内 且刷新5次皆在
+    {cnt ++ ;}
+    if(cnt >=5)
+    {   cnt = 0;
+        return true;}
+    else
+    {return false;}
+}
+bool task_node::cv_task( int flag)//视觉启动函数
 {    
     ctrl.CV_flag = flag;//启动视觉控制
     ctrl.SEND_flag = 0; 
@@ -148,12 +145,13 @@ bool task_node::cv_task( int flag)
 
 }
 
-bool task_node::send_task(int send_num)
+bool task_node::send_task(int send_num)//多航点启动函数
 {
+
     ctrl.CV_flag = 0;
     ctrl.SEND_flag = send_num;//启动航点控制 send_num表示在第几个航点
     task_pub.publish(ctrl);
-    ROS_INFO("pub:SEND_task");
+
     if(ctrl.Finishcv_flag == 0){//判断结束标志
     return false;
     }
@@ -163,28 +161,37 @@ bool task_node::send_task(int send_num)
     }
 }
 
-int task_node::nav_land_task(void)
+bool task_node::nav_land_task(void)//降落函数，仅仅第一次有效
 {
+    static bool first_info = true;
+    if(first_info)//仅仅输出一次
+    {
+        ROS_INFO("-------pub:land-------");
+        first_info = false;
+    }
     clear_flag();
     ctrl.Land_flag = 1;//降落指令
     task_pub.publish(ctrl);
-    ROS_INFO("pub:land");
-    return 1;
+    return true;
 }
 
-bool task_node::nav_takeoff_task(void)
+bool task_node::nav_takeoff_task(void)//起飞函数，仅仅第一次有效
 {
+    static bool first_info = true;
+    if(first_info)//仅仅输出一次
+    {
+        ROS_INFO("-------pub:takeoff-------");
+        first_info = false;
+    }
     clear_flag();
     ctrl.Takeoff_flag = 1;//起飞指令
     task_pub.publish(ctrl);
-    ROS_INFO("pub:takeoff");
-
 
     return get_targetheight(1.);
 
 }
 
-bool task_node::access(int flag,float deepth)
+bool task_node::access(int flag,float deepth)//穿越圆环，不提供vz,vy版本，flag:视觉标志 deepth 穿越深度
 {
     static float last_x =  0;//设置静态变量,记录位置信息
     static int flag_x = 0;//设置静态变量
@@ -220,7 +227,7 @@ void task_node::task_spin(void)
 
 }
 
-void task_node::clear_flag(void)
+void task_node::clear_flag(void)//清楚发送，慎重用
 {
     ctrl.Land_flag = 0;
     ctrl.Takeoff_flag = 0; 
@@ -264,6 +271,13 @@ int main(int argc, char **argv)
     ros::Time last_request = ros::Time::now();
 */
 
+//指令速写
+//task.nav_takeoff_task()
+//task.nav_land_task()
+//task.access()
+//task.send_task(1)
+//
+
 #if USE_ENABLE == 0     //本定义用作正式代码
 
 while(ros::ok()){
@@ -277,21 +291,28 @@ while(ros::ok()){
             }
             break;
         case 1:
-            if(task.send_task(1))
+            if(task.cv_task(1))
             {
                 task.clear_flag();
                 processflag++;
             }
             break;
         case 2:
-            if(task.send_task(2))
+            if(task.send_task(1))
+            {
+                task.clear_flag();
+                processflag++;
+                
+            }
+        case 3:
+            if(task.send_task(3))
             {
                 task.clear_flag();
                 processflag++;
                 
             }
             break;
-        case 3:
+        case 4:
             if(task.access(1,1))
             {
                 task.clear_flag();
@@ -312,7 +333,6 @@ while(ros::ok()){
 
 task.nav_takeoff_task();//起飞
 
-
 while (ros::ok())
 {
     while(!task.nav_takeoff_task() && ros::ok())//当起飞结束后跳出循环，进入下一步
@@ -321,8 +341,7 @@ while (ros::ok())
         rate.sleep();
     }
 
-    
-    task.clear_flag();//标志清楚函数，避免以前使用的flag未被置位影响到后续发布
+    //task.clear_flag();//标志清除函数，避免以前使用的flag未被置位影响到后续发布
     task.task_spin();
     rate.sleep();
     task.cv_task(1);

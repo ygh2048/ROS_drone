@@ -78,6 +78,7 @@ void task_cb(const ctrl_msgs::command::ConstPtr& msg)
 	if (get_ctrl.Takeoff_flag == 1) //不会被置零
 	{
 		start_flag = 1;
+
     }
     if (get_ctrl.Land_flag == 1) //不会被置零
 	{
@@ -109,7 +110,7 @@ void choose_target(int check)
 	{
 		current_goal.velocity.x = temp_goal.velocity.x;//速度
 		current_goal.velocity.y = temp_goal.velocity.y;		
-
+		current_goal.position.z = 1.1;
 		current_goal.yaw_rate = temp_goal.yaw_rate;	
 	}
 
@@ -154,6 +155,8 @@ int main(int argc, char **argv)
 			//------------------------------------------这一段用来起飞的，高度1米，过后rviz打点后直接订阅前面的速度控制回调函数
 	current_goal.coordinate_frame = mavros_msgs::PositionTarget::FRAME_LOCAL_NED;//相对坐标
 	current_goal.type_mask = velocity_mask;
+	current_goal.velocity.x = 0;//速度
+	current_goal.velocity.y	= 0;
 	current_goal.position.z = 1.1;
 			//-------------------------------------------
 
@@ -213,7 +216,8 @@ int main(int argc, char **argv)
 				}
 			choose_target(check_flag);
 			local_pos_pub.publish(current_goal);
-			//ROS_INFO("vel.x = %0.2f   vel.y = %0.2f  pos.z = %0.2f\n",current_goal.velocity.x,current_goal.velocity.y,current_goal.position.z);
+			
+			ROS_INFO("vel.x = %0.2f   vel.y = %0.2f  pos.z = %0.2f\n",current_goal.velocity.x,current_goal.velocity.y,current_goal.position.z);
 			ros::spinOnce();
 			rate.sleep();
 

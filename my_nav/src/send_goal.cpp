@@ -66,13 +66,14 @@ bool nav_points_task(MoveBaseClient& ac,int num,move_base_msgs::MoveBaseGoal goa
 		goal.target_pose.pose.orientation.w = -1;
 		ROS_INFO("sending---------------------------");	
         ac.sendGoal(goal);//发送多航点到nav进行控制
-		ROS_INFO("sending///////////////////////////");		
+		ROS_INFO("overing///////////////////////////");		
         ac.waitForResult();
 
         if (ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED) {
             ROS_INFO("You have reached the goal %d", num);
 			clear_flag();
 			send_ctrl_flag.Finishsend_flag = 1;
+			send_task_pub.publish(send_ctrl_flag);//发送结束标志
 			send_task_pub.publish(send_ctrl_flag);
 			return true;
 
@@ -93,7 +94,6 @@ int main(int argc, char** argv)
 
 	ros::Subscriber task_sub = nh.subscribe<ctrl_msgs::command>("task/task_pub",10,task_cb);
 
-
 	ros::Publisher send_task_pub = nh.advertise<ctrl_msgs::command>("task/send_to_task",1);
 
 	ros::Rate rate(20.0);
@@ -106,9 +106,7 @@ int main(int argc, char** argv)
 	// Send a goal to move_base
 	//目标的属性设置
 
-
-	move_base_msgs::MoveBaseGoal goal;
-
+	move_base_msgs::MoveBaseGoal goal;//定义发布速度
 	
 	ROS_INFO("");
 	while(ros::ok())
@@ -117,11 +115,6 @@ int main(int argc, char** argv)
 	{
 	case 0:
 		//默认空循环
-		cnt ++;
-		cnt %= 40;//通过cnt控制process发送频率，避免刷屏
-		if(cnt == 39)//标识当前process
-			ROS_INFO("processflag %d", processflag);
-		break;
 	case 1/* constant-expression */:
 		/* code */
 		if(get_ctrl_flag.SEND_flag)
@@ -130,6 +123,7 @@ int main(int argc, char** argv)
 		nav_points_task(ac,0,goal);//见形参
 		send_task_pub.publish(send_ctrl_flag);
 		clear_flag();
+		processflag = 0;
 		}
 		break;
 	case 2/* constant-expression */:
@@ -140,6 +134,7 @@ int main(int argc, char** argv)
 		nav_points_task(ac,1,goal);
 		send_task_pub.publish(send_ctrl_flag);
 		clear_flag();
+		processflag = 0;
 		}
 		break;
 	case 3/* constant-expression */:
@@ -150,6 +145,7 @@ int main(int argc, char** argv)
 		nav_points_task(ac,2,goal);
 		send_task_pub.publish(send_ctrl_flag);
 		clear_flag();
+		processflag = 0;
 		}
 		break;
 	case 4/* constant-expression */:
@@ -160,6 +156,7 @@ int main(int argc, char** argv)
 		nav_points_task(ac,3,goal);
 		send_task_pub.publish(send_ctrl_flag);
 		clear_flag();
+		processflag = 0;
 		}
 		break;
 	case 5/* constant-expression */:
@@ -170,6 +167,7 @@ int main(int argc, char** argv)
 		nav_points_task(ac,4,goal);
 		send_task_pub.publish(send_ctrl_flag);
 		clear_flag();
+		processflag = 0;
 		}
 		break;
 
@@ -178,8 +176,6 @@ int main(int argc, char** argv)
 	}
 	ros::spinOnce();//调用回调函数
 
-	if(processflag != 0)//标识当前process
-{ROS_INFO("processflag %d", processflag);}
 	if(get_ctrl_flag.SEND_flag != 0)//通过订阅task_node发布的信息决定飞行的哪一个航点，当不飞行航点时置0，不允许（运行空）
 	{
 	processflag = get_ctrl_flag.SEND_flag;
