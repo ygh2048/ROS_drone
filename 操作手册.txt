@@ -1,5 +1,11 @@
 操作手册
 
+两键启动代码（包括send_goal ，不包括cv）
+./drone_ws/src/shfiles/start.sh  
+无人机预备动作
+./drone_ws/src/shfiles/next.sh  
+无人机建图及其控制节点
+
 相关启动命令及其解释
 roslaunch my_nav px4.launch
 px4启动
@@ -24,10 +30,38 @@ roslaunch my_nav task_start.launch
 rosrun my_nav ros_nav
 启动px4对接节点
 rosrun my_nav send_goal 
-启动多航点
+启动多航点(move_base规划)
 rosrun my_nav task_node
 启动任务分配节点
+
+///////////////////////////////////////////////////
+调试：
 
 几个关键topic查询
 rostopic echo task/task_pub
 发布所有控制信息
+rostopic echo task/cv_task
+cv识别数据内容
+rostopic hz task/cv_task
+cv识别数据频率
+rostopic echo mavros/local_position/pose
+当前位置信息（数据来源：t265）
+
+几个flag定义以及后续
+uint8 Land_flag #降落标志    #task置位
+uint8 Takeoff_flag #起飞标志   #task置位
+uint8 Process_flag #任务进度标志  #send置位
+uint8 CV_flag #任务视觉切入标志 1 : 圆 2 : 方框   3 不启动，意味task直接控制  #task置位
+uint8 Finishcv_flag #任务完成标志 1 ：对准圆心标志 2：即将穿过圆心标志   #cv置位
+下一步:
+
+
+uint8 SEND_flag #任务航点标志     #task置位
+uint8 Finishsend_flag #任务完成标志   #send置位
+
+#视觉航点
+float32 vx
+float32 vy
+float32 vz
+float32 yaw
+float32 access
