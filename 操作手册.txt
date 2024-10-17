@@ -1,0 +1,33 @@
+操作手册
+
+相关启动命令及其解释
+roslaunch my_nav px4.launch
+px4启动
+
+roslaunch my_nav t265.launch
+t265启动
+
+roslaunch my_nav rplidar.launch
+雷达启动
+
+roslaunch robot_vision circle.launch
+视觉启动
+
+roslaunch my_nav nav_demo_indoor3.launch
+建图，避障启动
+
+roslaunch my_nav task_start.launch
+自定义节点启动
+
+自定义节点分解启动:
+
+rosrun my_nav ros_nav
+启动px4对接节点
+rosrun my_nav send_goal 
+启动多航点
+rosrun my_nav task_node
+启动任务分配节点
+
+几个关键topic查询
+rostopic echo task/task_pub
+发布所有控制信息

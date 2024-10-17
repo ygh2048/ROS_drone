@@ -4,7 +4,8 @@
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
 #include <ctrl_msgs/command.h>
-
+#include <tf/tf.h>
+#include <tf/transform_datatypes.h>
 
 #define USE_ENABLE    0 //选择代码类型
 
@@ -61,6 +62,7 @@ public:
     bool nav_land_task(void);
     bool nav_takeoff_task(void);
     bool access(int flag,float deepth);
+    bool move_base_mine(float in_x, float in_y, float in_z, float in_yaw);
     void task_spin(void);
     void clear_flag(void);
     void pub(void)
@@ -193,34 +195,97 @@ bool task_node::nav_takeoff_task(void)//起飞函数，仅仅第一次有效
 
 bool task_node::access(int flag,float deepth)//穿越圆环，不提供vz,vy版本，flag:视觉标志 deepth 穿越深度
 {
-    static float last_x =  0;//设置静态变量,记录位置信息
-    static int flag_x = 0;//设置静态变量
+    static float last_x = 0; // 设置静态变量，记录位置信息
+    static bool first_execution = true; // 设置静态变量，标记是否是第一次执行
     clear_flag();
 
-    ctrl.CV_flag = flag;//启动视觉控制   自给   flagcv的模式
+    ctrl.CV_flag = flag; // 启动视觉控制，自给，flagcv 的模式
     ctrl.SEND_flag = 0;
 
-    if(flag)
+    // 第一次执行时记录当前位置
+    if (first_execution)
     {
-        flag_x = 1;
-    } 
-
-    if(flag_x)
-    {
-        flag_x = 0;
-        last_x = current_pose.pose.position.x;
+        last_x = current_pose.pose.position.x; // 记录当前位置
+        first_execution = false; // 设置为非第一次执行
     }
-    ctrl.vz = 0;
-    ctrl.vy = 0;
-    ctrl.vx = 0.6;//前进速度
 
-    ROS_INFO("pub:access");
+    ctrl.vy = get_msg[1].vy;
+    ctrl.vz = get_msg[1].vz;
+    ctrl.vx = 0.3; // 设置前进速度为 0.3
+
+
     if(get_targetx(last_x + deepth))
-    return true;
+    {   
+        first_execution = true; 
+        return true;
+    }
     else
+    {
+    task_pub.publish(ctrl);//发布控制信息
+    ROS_INFO("pub:access %f" ,deepth);
     return false;
-
+    }
 }
+
+bool task_node::move_base_mine(float in_x, float in_y, float in_z, float in_yaw)
+{
+    static float last_x = 0; // 设置静态变量，记录位置信息
+    static float last_y = 0; // 设置静态变量，记录位置信息
+    static float last_z = 0; // 设置静态变量，记录位置信息
+    static bool first_execution = true; // 设置静态变量，标记是否是第一次执行
+    clear_flag();
+
+    ctrl.CV_flag = 3; // 不启动视觉控制，操作速度指令来源于task
+    ctrl.SEND_flag = 0;
+
+    // 第一次执行时记录当前位置
+    if (first_execution)
+    {
+        last_x = current_pose.pose.position.x; // 记录当前位置
+        last_y = current_pose.pose.position.y; // 记录当前位置
+        last_z = current_pose.pose.position.z; // 记录当前位置
+        first_execution = false; // 设置为非第一次执行
+    }
+
+    // 计算当前位置与目标位置的距离
+    float distance = sqrt(pow(in_x + last_x - current_pose.pose.position.x, 2) +
+                          pow(in_y + last_y - current_pose.pose.position.y, 2) +
+                          pow(in_z + last_z - current_pose.pose.position.z, 2));
+
+    // 设置一个阈值，以判断是否到达目标位置
+    const float threshold = 0.1; // 设定一个合理的到达阈值
+
+    if (distance < threshold)
+    {
+        // 如果距离小于阈值，说明到达目标位置
+        first_execution = true; // 重置函数，以备下次使用
+        last_x = 0; 
+        last_y = 0; 
+        last_z = 0;
+        return true;
+    }
+    else
+    {
+        // 控制机器人朝向目标位置
+        ctrl.vx = (in_x + last_x - current_pose.pose.position.x) / distance * 0.4; // 设置前进速度
+        ctrl.vy = (in_y + last_y - current_pose.pose.position.y) / distance * 0.4; // 设置侧向速度
+        ctrl.vz = (in_z + last_z - current_pose.pose.position.z) / distance * 0.4; // 设置垂直速度
+
+        // 控制朝向
+        float yaw_error = in_yaw - tf::getYaw(current_pose.pose.orientation);
+        // 处理 yaw 的范围 -π 到 π
+        while (yaw_error > M_PI) yaw_error -= 2 * M_PI;
+        while (yaw_error < -M_PI) yaw_error += 2 * M_PI;
+
+        // 设置旋转速度
+        ctrl.yaw = yaw_error * 0.5; // 旋转速度比例因子
+
+        task_pub.publish(ctrl); // 发布控制信息
+        ROS_INFO("pub:access target(%f, %f, %f) current(%f, %f, %f)", in_x, in_y, in_z, current_pose.pose.position.x, current_pose.pose.position.y, current_pose.pose.position.z);
+        return false; // 还未到达目标位置
+    }
+}
+
 void task_node::task_spin(void)
 {
         ros::spinOnce();
@@ -276,7 +341,7 @@ int main(int argc, char **argv)
 //task.nav_land_task()
 //task.access()
 //task.send_task(1)
-//
+//task.move_base_mine(1,1,1,M_PI / 4)
 
 #if USE_ENABLE == 0     //本定义用作正式代码
 
