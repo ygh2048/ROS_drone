@@ -47,6 +47,8 @@ cv识别数据频率
 rostopic echo mavros/local_position/pose
 当前位置信息（数据来源：t265）
 
+
+
 几个flag定义以及后续
 uint8 Land_flag #降落标志    #task置位
 uint8 Takeoff_flag #起飞标志   #task置位
