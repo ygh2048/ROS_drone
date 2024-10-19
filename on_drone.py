@@ -97,9 +97,13 @@ def detect_circles_from_camera():
                 if Vz < -0.55:
                     Vz = -0.55
 
+                if i[2] > 205:
+                    finshcv_flag = 2
+                    print(f"finshcv_flag: {finshcv_flag}")
                 # 每两秒输出一次圆心和角度
                 if (time.time() - last_output_time) > 2:
                     print(f"Circle Center: ({i[0]}, {i[1]}), Angle: {angle:.2f} degrees, Vy: {Vy:.2f}, Vz: {Vz:.2f}")
+
                     last_output_time = time.time()
 
         # 用卡尔曼滤波器预测的结果更新图像
