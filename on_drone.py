@@ -88,14 +88,8 @@ def detect_circles_from_camera():
                 Vz = -Vy * np.tan(np.radians(angle))
                 Vy = -Vy
 
-                if Vy > 0.55:
-                    Vy = 0.55
-                if Vy < -0.55:
-                    Vy = -0.55
-                if Vz > 0.55:
-                    Vz = 0.55
-                if Vz < -0.55:
-                    Vz = -0.55
+                Vy = max(min(Vy, 0.55), -0.55)
+                Vz = max(min(Vz, 0.55), -0.55)#限定VyVz范围
 
                 if i[2] > 205:
                     finshcv_flag = 2
