@@ -85,10 +85,11 @@ void task_cb(const ctrl_msgs::command::ConstPtr& msg)
 		end_flag = 1;
     }
 
-	if(get_ctrl.CV_flag == 1)//使得checkflag在1或者0变换，那么要么多航点控制要么视觉控制
+	if(get_ctrl.CV_flag == 1 || get_ctrl.CV_flag == 2 || get_ctrl.CV_flag == 3)//使得checkflag在1或者0变换，那么要么多航点控制要么视觉控制
 	{
 		check_flag = 1;
 	}
+
 
 	if(get_ctrl.SEND_flag == 1)
 	{
