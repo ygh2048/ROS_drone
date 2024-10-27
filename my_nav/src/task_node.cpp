@@ -66,12 +66,12 @@ public:
     bool move_to_relative_head_position(float relative_x, float relative_y, float relative_z);
     bool rotate_to_yaw(float target_yaw);
     bool rotate_to_yaw_base(float target_yaw);
-    bool task_node::hover(int time);
+    bool hover(int time);
     void task_spin(void);
     void clear_flag(void);
-    bool task_node::turn_true_angle();
+    bool turn_true_angle();
     void pub(void)
-    {task_node::task_pub.publish(ctrl);}
+    {task_pub.publish(ctrl);}
 };
 
 task_node::task_node(ros::NodeHandle& nh)
@@ -134,6 +134,7 @@ bool task_node::get_targety(float y)//目标y判断，y为全局
     else
     {return false;}
 }
+
 bool task_node::cv_task( int flag)//视觉启动函数
 {    
     ctrl.CV_flag = flag;//启动视觉控制
@@ -201,6 +202,7 @@ bool task_node::nav_takeoff_task(void)//起飞函数，仅仅第一次有效
     return get_targetheight(1.);
 
 }
+
 bool task_node::access(int flag, float deepth) //穿越圆环，不提供 vz, vy 版本，flag:视觉标志 deepth 穿越深度
 {
     static float last_x = 0; // 设置静态变量，记录位置信息
@@ -379,7 +381,9 @@ bool task_node::rotate_to_yaw_base(float target_yaw)//正为逆时针//相对坐
         return true;
     }
     else
-    return false;
+    {
+        return false;
+    }
 
 }
 
@@ -395,12 +399,20 @@ bool task_node::hover(int time)//s为单位
 
     if(if_first_flag)
         {
+            ROS_INFO("HOVER--------------");
             if_first_flag = false;
             last_x = current_pose.pose.position.x;
             last_y = current_pose.pose.position.y;
             last_z = current_pose.pose.position.z;
         }
+
+    // 计算当前位置与目标位置的距离
+    float distance = sqrt(pow(last_x - current_pose.pose.position.x, 2) +
+                          pow(last_y - current_pose.pose.position.y, 2) +
+                          pow(last_z - current_pose.pose.position.z, 2));
+
     ros::Time start_time = ros::Time::now();
+
     if(ros::ok() && (ros::Time::now() - start_time).toSec() < time){
     // 控制机器人朝向目标位置
     ctrl.vx = (last_x - current_pose.pose.position.x) / distance * 0.4;
@@ -451,8 +463,8 @@ bool task_node::turn_true_angle(void)//当finishcv_falg 为3时候，需要逆�
     cnt /= 12;
     if(cnt  == 9 || cnt  == 8)
     {
-        trusttimme_flag = true;
-        ROS_INFO("HOVER--------------");
+        trusttime_flag = true;
+        ROS_INFO("turn_true_angle--------------");
     }
 
     if(ctrl.Finishcv_flag >=3 || ctrl.Finishcv_flag <= 5)
@@ -461,14 +473,14 @@ bool task_node::turn_true_angle(void)//当finishcv_falg 为3时候，需要逆�
         {
             case 3:
             {
-                if(rotate_to_yaw(yaw_read) && trusttimme_flag == true)
+                if(rotate_to_yaw(yaw_read) && trusttime_flag == true)
                 {
                     yaw_read += M_PI / 72;
                 }
             }break;
             case 4:
             {
-                if(rotate_to_yaw(yaw_read) && trusttimme_flag == true)
+                if(rotate_to_yaw(yaw_read) && trusttime_flag == true)
                 {
                     yaw_read -= M_PI / 72;
                 }
