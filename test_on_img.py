@@ -13,8 +13,8 @@ else:
 
 
 # 设置需要保留的灰度值范围
-lower_bound = 1  # 设置下界
-upper_bound = 110  # 设置上界
+lower_bound = 2  # 设置下界
+upper_bound = 100  # 设置上界
 
 # 创建掩膜，保留在范围内的像素
 mask = cv2.inRange(depth_gray, lower_bound, upper_bound)

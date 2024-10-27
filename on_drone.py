@@ -117,8 +117,6 @@ def detect_circles_from_camera():
         Vz = -Vy * np.tan(np.radians(angle))
         Vy = -Vy
 
-        
-
         Vy = max(min(Vy, 0.55), -0.55)
         Vz = max(min(Vz, 0.55), -0.55)#限定VyVz范围
         velocity_msg.vy = Vy

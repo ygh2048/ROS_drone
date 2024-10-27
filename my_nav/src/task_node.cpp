@@ -7,7 +7,7 @@
 #include <tf/tf.h>
 #include <tf/transform_datatypes.h>
 
-#define USE_ENABLE    0 //选择代码类型
+#define USE_ENABLE    1 //选择代码类型
 
 #define TARGET_Z      1
 
@@ -65,8 +65,11 @@ public:
     bool move_to_relative_position(float in_x, float in_y, float in_z);
     bool move_to_relative_head_position(float relative_x, float relative_y, float relative_z);
     bool rotate_to_yaw(float target_yaw);
+    bool rotate_to_yaw_base(float target_yaw);
+    bool task_node::hover(int time);
     void task_spin(void);
     void clear_flag(void);
+    bool task_node::turn_true_angle();
     void pub(void)
     {task_node::task_pub.publish(ctrl);}
 };
@@ -96,9 +99,10 @@ task_node::~task_node()
 bool task_node::get_targetheight( float height)//高度判断函数
 {
     static int cnt = 0;
-    if(abs(current_pose.pose.position.z-height)<0.1 &&cnt < 5)//高度到达目标高度附近0.1m以内，且刷新5次皆在
+    if(abs(current_pose.pose.position.z-height)<0.1 &&cnt < 7)//高度到达目标高度附近0.1m以内，且刷新5次皆在
     {cnt ++ ;}
-    if(cnt >=5)
+    else{cnt /= 2 ;}
+    if(cnt >=7)
     {   cnt = 0;
         return true;}
     else
@@ -108,9 +112,10 @@ bool task_node::get_targetheight( float height)//高度判断函数
 bool task_node::get_targetx(float x)//目标x判断，x为全局
 {
     static int cnt = 0;
-    if(abs(current_pose.pose.position.x-x)<0.1 &&cnt < 5)//现在位置距离规划前进位置在0.1m以内 且刷新5次皆在
+    if(abs(current_pose.pose.position.x-x)<0.1 &&cnt < 7)//现在位置距离规划前进位置在0.1m以内 且刷新5次皆在
     {cnt ++ ;}
-    if(cnt >=5)
+    else{cnt /= 2;}
+    if(cnt >=7)
     {   cnt = 0;
         return true;}
     else
@@ -120,9 +125,10 @@ bool task_node::get_targetx(float x)//目标x判断，x为全局
 bool task_node::get_targety(float y)//目标y判断，y为全局
 {
     static int cnt = 0;
-    if(abs(current_pose.pose.position.y-y)<0.1 &&cnt < 5)//现在位置距离规划前进位置在0.1m以内 且刷新5次皆在
+    if(abs(current_pose.pose.position.y-y)<0.1 && cnt < 7)//现在位置距离规划前进位置在0.1m以内 且刷新5次皆在
     {cnt ++ ;}
-    if(cnt >=5)
+    else{cnt /= 2;}
+    if(cnt >=7)
     {   cnt = 0;
         return true;}
     else
@@ -137,6 +143,7 @@ bool task_node::cv_task( int flag)//视觉启动函数
     ctrl.vz = get_msg[1].vz;
     ctrl.yaw = get_msg[1].yaw;//偏航角
     ctrl.Finishcv_flag = get_msg[1].Finishcv_flag;
+
     task_pub.publish(ctrl);//发布ctrl消息
     ROS_INFO("pub:CV_task");
     if(ctrl.Finishcv_flag == 0){//判断结束标志
@@ -194,8 +201,7 @@ bool task_node::nav_takeoff_task(void)//起飞函数，仅仅第一次有效
     return get_targetheight(1.);
 
 }
-
-bool task_node::access(int flag, float deepth) //穿越圆环，不提供vz,vy版本，flag:视觉标志 deepth 穿越深度
+bool task_node::access(int flag, float deepth) //穿越圆环，不提供 vz, vy 版本，flag:视觉标志 deepth 穿越深度
 {
     static float last_x = 0; // 设置静态变量，记录位置信息
     static float last_y = 0; // 设置静态变量，记录位置信息
@@ -216,16 +222,17 @@ bool task_node::access(int flag, float deepth) //穿越圆环，不提供vz,vy�
     }
 
     // 获取相对机头的速度
-    float relative_vy = get_msg[1].vy; // 相对机头的y速度
-    float relative_vz = get_msg[1].vz; // 相对机头的z速度
+    float relative_vy = get_msg[1].vy; // 相对机头的 y 速度
+    float relative_vz = get_msg[1].vz; // 相对机头的 z 速度
 
     // 获取当前航向角（弧度）
     float current_yaw = tf::getYaw(current_pose.pose.orientation);
 
     // 计算地面坐标系下的速度
-    ctrl.vx = 0.4; // 设置前进速度为 0.4
-    ctrl.vy = relative_vy * cos(current_yaw) - relative_vz * sin(current_yaw);
-    ctrl.vz = relative_vy * sin(current_yaw) + relative_vz * cos(current_yaw);
+    float desired_speed = 0.4; // 设置穿越速度为 0.4
+    ctrl.vx = desired_speed * cos(current_yaw) - relative_vy * sin(current_yaw); // 根据航向计算 绝对 x 方向速度
+    ctrl.vy = relative_vy * cos(current_yaw) + desired_speed * sin(current_yaw); // 根据航向计算 绝对 y 方向速度
+    ctrl.vz = relative_vz;
 
     if (ctrl.Finishcv_flag == 3)
     {
@@ -251,15 +258,15 @@ bool task_node::access(int flag, float deepth) //穿越圆环，不提供vz,vy�
     }
 }
 
-bool task_node::move_to_relative_position(float in_x, float in_y, float in_z)//绝对坐标系下
+bool task_node::move_to_relative_position(float in_x, float in_y, float in_z)//绝对坐标系下,以初始方向为正方向 相对位移，z为绝对位移
 {
     static float last_x = 0; 
     static float last_y = 0; 
     static float last_z = 0; 
     static bool first_execution = true; 
 
-    clear_flag();
-    ctrl.CV_flag = 3; // 不启动视觉控制，操作速度指令来源于task
+    //clear_flag();
+    ctrl.CV_flag = 3; // 添加vx控制
     ctrl.SEND_flag = 0;
 
     // 第一次执行时记录当前位置
@@ -274,9 +281,9 @@ bool task_node::move_to_relative_position(float in_x, float in_y, float in_z)//�
     // 计算当前位置与目标位置的距离
     float distance = sqrt(pow(in_x + last_x - current_pose.pose.position.x, 2) +
                           pow(in_y + last_y - current_pose.pose.position.y, 2) +
-                          pow(in_z + last_z - current_pose.pose.position.z, 2));
+                          pow(in_z - current_pose.pose.position.z, 2));
 
-    const float threshold = 0.14; // 到达阈值
+    const float threshold = 0.12; // 到达阈值
 
     if (distance < threshold)
     {
@@ -304,7 +311,7 @@ bool task_node::move_to_relative_position(float in_x, float in_y, float in_z)//�
     }
 }
 
-bool task_node::move_to_relative_head_position(float relative_x, float relative_y, float relative_z) {
+bool task_node::move_to_relative_head_position(float relative_x, float relative_y, float relative_z) {//相对坐标系下
     // 获取当前航向角（单位为弧度）
     float current_yaw = tf::getYaw(current_pose.pose.orientation);
 
@@ -319,8 +326,8 @@ bool task_node::move_to_relative_head_position(float relative_x, float relative_
 
 bool task_node::rotate_to_yaw(float target_yaw)//正为逆时针//绝对坐标系下
 {
-    static bool first_yawtarget = true; 
-    clear_flag();
+    //static bool first_yawtarget = true; 
+    //clear_flag();
 
     float yaw_error = target_yaw - tf::getYaw(current_pose.pose.orientation);
 
@@ -356,6 +363,59 @@ bool task_node::rotate_to_yaw(float target_yaw)//正为逆时针//绝对坐标�
     }
 }
 
+bool task_node::rotate_to_yaw_base(float target_yaw)//正为逆时针//相对坐标系下
+{
+    static bool if_first_flag = true;
+    static float last_yaw = 0;
+    if(if_first_flag == true)
+    {
+        last_yaw = tf::getYaw(current_pose.pose.orientation);
+        if_first_flag = false;
+    }
+
+    if(task_node::rotate_to_yaw(target_yaw + last_yaw))
+    {
+        if_first_flag = true;
+        return true;
+    }
+    else
+    return false;
+
+}
+
+bool task_node::hover(int time)//s为单位
+{    
+    static float last_x = 0; 
+    static float last_y = 0; 
+    static float last_z = 0; 
+    static bool  if_first_flag = true;
+
+    ctrl.CV_flag = 3; // 添加vx控制
+    ctrl.SEND_flag = 0;
+
+    if(if_first_flag)
+        {
+            if_first_flag = false;
+            last_x = current_pose.pose.position.x;
+            last_y = current_pose.pose.position.y;
+            last_z = current_pose.pose.position.z;
+        }
+    ros::Time start_time = ros::Time::now();
+    if(ros::ok() && (ros::Time::now() - start_time).toSec() < time){
+    // 控制机器人朝向目标位置
+    ctrl.vx = (last_x - current_pose.pose.position.x) / distance * 0.4;
+    ctrl.vy = (last_y - current_pose.pose.position.y) / distance * 0.4;
+    ctrl.vz = (last_z - current_pose.pose.position.z) / distance * 0.4;
+
+    task_pub.publish(ctrl);
+    return false; // 还未到达目标位置
+    }
+    else
+    {
+        return true;
+    }
+}
+
 void task_node::task_spin(void)
 {
         ros::spinOnce();
@@ -380,6 +440,67 @@ void task_node::clear_flag(void)//清楚发送，慎重用
     ROS_INFO("task node clear flag--------------");
 }
 
+bool task_node::turn_true_angle(void)//当finishcv_falg 为3时候，需要逆时针转动，为4时，需要顺时针转动。为5时，停止对准（此时同时已经对准圆形）
+{
+    static int yaw_read = 0;
+    static int cnt = 0;
+    bool trusttime_flag = false;
+    int mode_flag = 0;
+    ctrl.Finishcv_flag = get_msg[1].Finishcv_flag;
+    cnt ++;
+    cnt /= 12;
+    if(cnt  == 9 || cnt  == 8)
+    {
+        trusttimme_flag = true;
+        ROS_INFO("HOVER--------------");
+    }
+
+    if(ctrl.Finishcv_flag >=3 || ctrl.Finishcv_flag <= 5)
+    {
+        switch(ctrl.Finishcv_flag) 
+        {
+            case 3:
+            {
+                if(rotate_to_yaw(yaw_read) && trusttimme_flag == true)
+                {
+                    yaw_read += M_PI / 72;
+                }
+            }break;
+            case 4:
+            {
+                if(rotate_to_yaw(yaw_read) && trusttimme_flag == true)
+                {
+                    yaw_read -= M_PI / 72;
+                }
+            }break;
+            default:
+            {
+                return true;
+            }break;
+        }
+    }
+    task_pub.publish(ctrl);
+}
+
+bool out_time_control(int time , int *processflag)
+{
+    static int cnt = 0;
+    static int last_processflag = 0;
+    if(last_processflag != *processflag)
+    {
+        last_processflag = *processflag;
+        cnt = 0;
+    }
+    cnt ++ ;
+
+    if(cnt > time * 20)
+    {
+        //*processflag ++;//超时进入下一操作
+        *processflag = 99;//超时停止
+    }
+    return true;
+}
+
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "task_node");
@@ -397,49 +518,43 @@ int main(int argc, char **argv)
     }
 
     ROS_INFO("connected px4");
-/** 
-    geometry_msgs::PoseStamped pose;
-    pose.pose.position.x = 0;
-    pose.pose.position.y = 0;
-    pose.pose.position.z = 0;
-
-    ros::Time last_request = ros::Time::now();
-*/
 
 //指令速写
 //task.nav_takeoff_task()
 //task.nav_land_task()
-//task.access()
+//task.access(1,deepth)
 //task.send_task(1)
+//task.cv_task(1)
 //task.move_to_relative_position(float in_x, float in_y, float in_z)
-//task.rotate_to_yaw(M_PI / 4)
-//move_to_relative_head_position(float relative_x, float relative_y, float relative_z) 
+//task.rotate_to_yaw(M_PI / 4)//逆时针旋转
+//task.move_to_relative_head_position(float relative_x, float relative_y, float relative_z) 
+//out_time_control(int time , int *processflag)超时控制函数
 
 #if USE_ENABLE == 0     //本定义用作正式代码
 
 while(ros::ok()){
-    switch (processflag)//processflag 决定任务进程
+    switch (processflag)//processflag 决定任务进程s
         {
         case 0:
-            if(task.nav_takeoff_task())
+            if(task.nav_takeoff_task() && out_time_control(15 , &processflag))
             {
                 task.clear_flag();
                 processflag++;//进入下一个线程
             }break;
         case 1:
-            if(task.move_to_relative_position(1,0,0))
+            if(task.access(1,1) && out_time_control(15 , &processflag))
             {
                 task.clear_flag();
                 processflag++;
             }break;
         case 2:
-            if(task.rotate_to_yaw(M_PI / 2))
+            if(task.rotate_to_yaw(M_PI / 2) && out_time_control(15 , &processflag))
             {
                 task.clear_flag();
                 processflag++;    
             }break;
         case 3:
-            if(task.move_to_relative_position(0,0,1))
+            if(task.move_to_relative_head_position(1, 0, 0) && out_time_control(15 , &processflag))
             {
                 task.clear_flag();
                 processflag++;
@@ -456,22 +571,66 @@ while(ros::ok()){
 
 #if USE_ENABLE == 1   //本定义用作测试
 
-task.nav_takeoff_task();//起飞
-
-while (ros::ok())
-{
-    while(!task.nav_takeoff_task() && ros::ok())//当起飞结束后跳出循环，进入下一步
-    {
+while(ros::ok()){
+    switch (processflag)//processflag 决定任务进程s
+        {
+        case 0:
+            if(task.nav_takeoff_task() && out_time_control(15 , &processflag))
+            {
+                task.clear_flag();
+                processflag++;//进入下一个线程
+            }break;
+        case 1:
+            if(task.move_to_relative_head_position(1, 0, 0) && out_time_control(15 , &processflag))
+            {
+                task.clear_flag();
+                processflag++;
+            }break;
+        case 2:
+            if(task.cv_task(1) && out_time_control(15 , &processflag))
+            {
+                task.clear_flag();
+                processflag++;    
+            }break;            
+        case 3:
+            if(task.access(1,2.2) && out_time_control(15 , &processflag))
+            {
+                task.clear_flag();
+                processflag++;    
+            }break;
+        case 4:
+            if(task.move_to_relative_head_position(0.2, 0.5, 0) && out_time_control(15 , &processflag))
+            {
+                task.clear_flag();
+                processflag++;
+            }break;
+        case 5:
+            if(task.rotate_to_yaw_base(- M_PI / 6) && out_time_control(15 , &processflag))//顺时针旋转30度
+            {
+                task.clear_flag();
+                processflag++;
+            }break; 
+        case 6:
+            if(task.cv_task(1) && out_time_control(15 , &processflag))
+            {
+                task.clear_flag();
+                processflag++;    
+            }break;            
+        case 7:
+            if(task.access(1,2.5) && out_time_control(15 , &processflag))
+            {
+                task.clear_flag();
+                processflag++;    
+            }break;                         
+        default:
+                task.clear_flag();
+                task.nav_land_task();
+            break;
+        }
         task.task_spin();
         rate.sleep();
     }
 
-    //task.clear_flag();//标志清除函数，避免以前使用的flag未被置位影响到后续发布
-    task.task_spin();
-    rate.sleep();
-    task.cv_task(1);
-
-}
 #endif
     return 0;
 }
