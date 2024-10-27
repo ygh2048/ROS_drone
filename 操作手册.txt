@@ -37,6 +37,20 @@ rosrun my_nav task_node
 ///////////////////////////////////////////////////
 调试：
 
+task/nav_to_task
+nav节点传给task 未使用
+task/send_task
+send节点传给task 标志多航点进度
+
+task/cv_task
+cv节点传给task  提供速度期望
+
+task/task_pub   
+总任务发布
+发布速度期望
+发布任务进度期望
+
+
 几个关键topic查询
 rostopic echo task/task_pub
 发布所有控制信息
@@ -44,19 +58,22 @@ rostopic echo task/cv_task
 cv识别数据内容
 rostopic hz task/cv_task
 cv识别数据频率
+
+rostopic echo task/cv_task
+
 rostopic echo mavros/local_position/pose
 当前位置信息（数据来源：t265）
-
-
 
 几个flag定义以及后续
 uint8 Land_flag #降落标志    #task置位
 uint8 Takeoff_flag #起飞标志   #task置位
 uint8 Process_flag #任务进度标志  #send置位
 uint8 CV_flag #任务视觉切入标志 1 : 圆 2 : 方框   3 不启动，意味task直接控制  #task置位
-uint8 Finishcv_flag #任务完成标志 1 ：对准圆心标志 2：即将穿过圆心标志   #cv置位
+uint8 Finishcv_flag #任务完成标志 1 ：对准圆心/方心标志 2：即将穿过圆心/方心标志   #cv置位
+uint8 Trustcv_flag 
 下一步:
 
+当finishcv_falg 为3时候，需要逆时针转动，为4时，需要顺时针转动。为5时，停止对准（此时同时已经对准圆形）
 
 uint8 SEND_flag #任务航点标志     #task置位
 uint8 Finishsend_flag #任务完成标志   #send置位
@@ -67,3 +84,5 @@ float32 vy
 float32 vz
 float32 yaw
 float32 access
+如果可以判断深度，则传入这个参数
+

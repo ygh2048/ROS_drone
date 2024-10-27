@@ -95,7 +95,6 @@ task_node::~task_node()
     ROS_INFO("end task");  
 }
 
-
 bool task_node::get_targetheight( float height)//高度判断函数
 {
     static int cnt = 0;
@@ -434,7 +433,7 @@ void task_node::task_spin(void)
 
 }
 
-void task_node::clear_flag(void)//清楚发送，慎重用
+void task_node::clear_flag(void)//清除发送，慎重用
 {
     ctrl.Land_flag = 0;
     ctrl.Takeoff_flag = 0; 
