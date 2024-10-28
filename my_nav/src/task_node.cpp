@@ -7,7 +7,7 @@
 #include <tf/tf.h>
 #include <tf/transform_datatypes.h>
 
-#define USE_ENABLE    1 //选择代码类型
+#define USE_ENABLE    0 //选择代码类型
 
 #define TARGET_Z      1
 
@@ -15,6 +15,9 @@ mavros_msgs::State current_state;
 geometry_msgs::PoseStamped current_pose;//获取当前坐标
 
 int processflag=0;//进度flag
+
+
+
 
 class task_node
 {
@@ -56,6 +59,10 @@ private:
 public:
     task_node(ros::NodeHandle& nh);
     ~task_node();
+
+    float takeoff_x;
+    float taskoff_y;
+
 
     bool cv_task( int flag);
     bool send_task( int send_num);
@@ -197,6 +204,9 @@ bool task_node::nav_takeoff_task(void)//起飞函数，仅仅第一次有效
     clear_flag();
     ctrl.Takeoff_flag = 1;//起飞指令
     task_pub.publish(ctrl);
+    
+    takeoff_x = current_pose.pose.position.x;
+    taskoff_y = current_pose.pose.position.y;
 
     return get_targetheight(1.);
 
@@ -225,21 +235,23 @@ bool task_node::access(int flag, float deepth) //穿越圆环，不提供 vz, vy
     // 获取相对机头的速度
     float relative_vy = get_msg[1].vy; // 相对机头的 y 速度
     float relative_vz = get_msg[1].vz; // 相对机头的 z 速度
+    float relative_vx = 0; // 相对机头的 x 速度
+
+    if (ctrl.Finishcv_flag == 3)
+    {
+        relative_vy = 0;
+        relative_vz = 0;
+        relative_vx = 0.4;
+    }
 
     // 获取当前航向角（弧度）
     float current_yaw = tf::getYaw(current_pose.pose.orientation);
 
     // 计算地面坐标系下的速度
-    float desired_speed = 0.4; // 设置穿越速度为 0.4
-    ctrl.vx = desired_speed * cos(current_yaw) - relative_vy * sin(current_yaw); // 根据航向计算 绝对 x 方向速度
-    ctrl.vy = relative_vy * cos(current_yaw) + desired_speed * sin(current_yaw); // 根据航向计算 绝对 y 方向速度
-    ctrl.vz = relative_vz;
 
-    if (ctrl.Finishcv_flag == 3)
-    {
-        ctrl.vy = 0;
-        ctrl.vz = 0;
-    }
+    ctrl.vx = relative_vx * cos(current_yaw) - relative_vy * sin(current_yaw); // 根据航向计算 绝对 x 方向速度
+    ctrl.vy = relative_vy * cos(current_yaw) + relative_vx * sin(current_yaw); // 根据航向计算 绝对 y 方向速度
+    ctrl.vz = relative_vz;
 
     // 计算新的目标位置
     float target_x = last_x + deepth * cos(current_yaw);
@@ -300,7 +312,7 @@ bool task_node::move_to_relative_position(float in_x, float in_y, float in_z)//�
         // 控制机器人朝向目标位置
         ctrl.vx = (in_x + last_x - current_pose.pose.position.x) / distance * 0.6;
         ctrl.vy = (in_y + last_y - current_pose.pose.position.y) / distance * 0.6;
-        ctrl.vz = (in_z + last_z - current_pose.pose.position.z) / distance * 0.6;
+        ctrl.vz = (in_z - current_pose.pose.position.z) / distance * 0.6;
 
         task_pub.publish(ctrl);
         ROS_INFO("Moving to position: target(%f, %f, %f) current(%f, %f, %f)", 
@@ -329,6 +341,8 @@ bool task_node::rotate_to_yaw(float target_yaw)//正为逆时针//绝对坐标�
 {
     //static bool first_yawtarget = true; 
     //clear_flag();
+    ctrl.CV_flag = 3; // 启动视觉控制，自给，flagcv 的模式
+    ctrl.SEND_flag = 0;
 
     float yaw_error = target_yaw - tf::getYaw(current_pose.pose.orientation);
 
@@ -337,7 +351,7 @@ bool task_node::rotate_to_yaw(float target_yaw)//正为逆时针//绝对坐标�
     while (yaw_error < -M_PI) yaw_error += 2 * M_PI;
 
     // 设置旋转速度
-    ctrl.yaw = yaw_error * 0.3; // 旋转速度比例因子
+    ctrl.yaw = yaw_error * 0.4; // 旋转速度比例因子
 
     if(ctrl.yaw > 0.4)
     ctrl.yaw = 0.4;
@@ -501,6 +515,7 @@ bool out_time_control(int time , int *processflag)
     {
         last_processflag = *processflag;
         cnt = 0;
+        ROS_INFO("processflag:       %d",last_processflag);
     }
     cnt ++ ;
 
@@ -508,6 +523,7 @@ bool out_time_control(int time , int *processflag)
     {
         //*processflag ++;//超时进入下一操作
         *processflag = 99;//超时停止
+        ROS_INFO("out of time");
     }
     return true;
 }
@@ -539,6 +555,7 @@ int main(int argc, char **argv)
 //task.move_to_relative_position(float in_x, float in_y, float in_z)
 //task.rotate_to_yaw(M_PI / 4)//逆时针旋转
 //task.move_to_relative_head_position(float relative_x, float relative_y, float relative_z) 
+//task.hover(time)
 //out_time_control(int time , int *processflag)超时控制函数
 
 #if USE_ENABLE == 0     //本定义用作正式代码
@@ -547,29 +564,29 @@ while(ros::ok()){
     switch (processflag)//processflag 决定任务进程s
         {
         case 0:
-            if(task.nav_takeoff_task() && out_time_control(15 , &processflag))
+            if(task.nav_takeoff_task() && out_time_control(8 , &processflag))
             {
                 task.clear_flag();
                 processflag++;//进入下一个线程
             }break;
         case 1:
-            if(task.access(1,1) && out_time_control(15 , &processflag))
-            {
-                task.clear_flag();
-                processflag++;
-            }break;
-        case 2:
-            if(task.rotate_to_yaw(M_PI / 2) && out_time_control(15 , &processflag))
+            if(task.rotate_to_yaw(M_PI /4) && out_time_control(8 , &processflag))
             {
                 task.clear_flag();
                 processflag++;    
             }break;
-        case 3:
-            if(task.move_to_relative_head_position(1, 0, 0) && out_time_control(15 , &processflag))
+        case 2:
+            if(task.move_to_relative_head_position(1, 0, 0) && out_time_control(8 , &processflag))
             {
                 task.clear_flag();
                 processflag++;
-            }break;            
+            }break; 
+        case 3:
+            if(task.rotate_to_yaw_base(M_PI /4) && out_time_control(8 , &processflag))
+            {
+                task.clear_flag();
+                processflag++;    
+            }break;           
         default:
                 task.clear_flag();
                 task.nav_land_task();
@@ -638,6 +655,7 @@ while(ros::ok()){
                 task.nav_land_task();
             break;
         }
+
         task.task_spin();
         rate.sleep();
     }
