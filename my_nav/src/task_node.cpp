@@ -60,8 +60,6 @@ public:
     task_node(ros::NodeHandle& nh);
     ~task_node();
 
-    float takeoff_x;
-    float taskoff_y;
 
 
     bool cv_task( int flag);
@@ -196,21 +194,56 @@ bool task_node::nav_land_task(void)//降落函数，仅仅第一次有效
 bool task_node::nav_takeoff_task(void)//起飞函数，仅仅第一次有效
 {
     static bool first_info = true;
+    static float takeoff_x;
+    static float taskoff_y;
     if(first_info)//仅仅输出一次
     {
         ROS_INFO("-------pub:takeoff-------");
         first_info = false;
+        takeoff_x = current_pose.pose.position.x;
+        taskoff_y = current_pose.pose.position.y;
     }
     clear_flag();
     ctrl.Takeoff_flag = 1;//起飞指令
-    task_pub.publish(ctrl);
+
     
-    takeoff_x = current_pose.pose.position.x;
-    taskoff_y = current_pose.pose.position.y;
 
-    return get_targetheight(1.);
 
+    if(get_targetheight(TARGET_Z))
+    {
+        // 计算当前位置与目标位置的距离
+        float distance = sqrt(pow(takeoff_x - current_pose.pose.position.x, 2) +
+                            pow(taskoff_y - current_pose.pose.position.y, 2) +
+                            pow(TARGET_Z - current_pose.pose.position.z, 2));
+
+        const float threshold = 0.08; // 到达阈值
+
+        if (distance < threshold)
+        {
+            return true; // 到达中心
+        }
+        else
+        {
+            // 控制机器人朝向目标位置
+            ctrl.vx = (takeoff_x - current_pose.pose.position.x) / distance * 0.6;
+            ctrl.vy = (taskoff_y - current_pose.pose.position.y) / distance * 0.6;
+            ctrl.vz = (TARGET_Z - current_pose.pose.position.z) / distance * 0.6;
+
+            task_pub.publish(ctrl);
+            ROS_INFO("Moving to position: target(%f, %f, %f) current(%f, %f, %f)", 
+                    in_x, in_y, in_z, 
+                    current_pose.pose.position.x, 
+                    current_pose.pose.position.y, 
+                    current_pose.pose.position.z);
+            return false; // 还未到达目标位置
+        }
+
+    }
+    task_pub.publish(ctrl);
 }
+
+
+
 
 bool task_node::access(int flag, float deepth) //穿越圆环，不提供 vz, vy 版本，flag:视觉标志 deepth 穿越深度
 {
@@ -294,7 +327,7 @@ bool task_node::move_to_relative_position(float in_x, float in_y, float in_z)//�
     // 计算当前位置与目标位置的距离
     float distance = sqrt(pow(in_x + last_x - current_pose.pose.position.x, 2) +
                           pow(in_y + last_y - current_pose.pose.position.y, 2) +
-                          pow(in_z - current_pose.pose.position.z, 2));
+                          pow(last_z - current_pose.pose.position.z, 2));
 
     const float threshold = 0.12; // 到达阈值
 
@@ -312,7 +345,7 @@ bool task_node::move_to_relative_position(float in_x, float in_y, float in_z)//�
         // 控制机器人朝向目标位置
         ctrl.vx = (in_x + last_x - current_pose.pose.position.x) / distance * 0.6;
         ctrl.vy = (in_y + last_y - current_pose.pose.position.y) / distance * 0.6;
-        ctrl.vz = (in_z - current_pose.pose.position.z) / distance * 0.6;
+        ctrl.vz = (last_z - current_pose.pose.position.z) / distance * 0.6;
 
         task_pub.publish(ctrl);
         ROS_INFO("Moving to position: target(%f, %f, %f) current(%f, %f, %f)", 
@@ -397,7 +430,6 @@ bool task_node::rotate_to_yaw_base(float target_yaw)//正为逆时针//相对坐
     {
         return false;
     }
-
 }
 
 bool task_node::hover(int time)//s为单位
@@ -507,25 +539,25 @@ bool task_node::turn_true_angle(void)//当finishcv_falg 为3时候，需要逆�
     task_pub.publish(ctrl);
 }
 
-bool out_time_control(int time , int *processflag)
-{
+bool out_time_control(int time, int *processflag) {
+    ctrl.Process_flag = *processflag;
     static int cnt = 0;
     static int last_processflag = 0;
-    if(last_processflag != *processflag)
-    {
-        last_processflag = *processflag;
-        cnt = 0;
-        ROS_INFO("processflag:       %d",last_processflag);
-    }
-    cnt ++ ;
 
-    if(cnt > time * 20)
-    {
-        //*processflag ++;//超时进入下一操作
-        *processflag = 99;//超时停止
-        ROS_INFO("out of time");
+    if (last_processflag != *processflag) {
+        last_processflag = *processflag;
+        cnt = 0;  // 重置计数器
+        ROS_INFO("processflag: %d", last_processflag);
     }
-    return true;
+
+    cnt++;
+
+    if (cnt > time * 20) {
+        *processflag = 99;  // 超时处理
+        ROS_INFO("out of time");
+        return false;  // 返回超时状态
+    }
+    return true;  // 返回正常状态
 }
 
 int main(int argc, char **argv)
@@ -570,7 +602,7 @@ while(ros::ok()){
                 processflag++;//进入下一个线程
             }break;
         case 1:
-            if(task.rotate_to_yaw(M_PI /4) && out_time_control(8 , &processflag))
+            if(task.rotate_to_yaw( - M_PI /4) && out_time_control(8 , &processflag))
             {
                 task.clear_flag();
                 processflag++;    

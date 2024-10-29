@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# 添加多线程，发布和订阅
 
+import numpy as np
 import rospy
 import cv2
 import threading
@@ -13,7 +15,7 @@ CV_flag = 0
 
 def CV_flag_cb(msg):
     global CV_flag
-    rospy.loginfo("Received data: %d ", msg.CV_flag)
+    rospy.loginfo("Received data: %d", msg.CV_flag)
     CV_flag = msg.CV_flag
 
 class CameraViewer:
@@ -39,17 +41,20 @@ class CameraViewer:
             with frame_lock:
                 if frame is not None:
                     # 在这里添加图像处理逻辑
-                    # 例如：将图像转换为灰度
-                    processed_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                    
+                    processed_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  # 转换为灰度图像
+
+                    # 显示图像
+                    cv2.imshow("Camera Feed", processed_frame)
+
                     # 发布消息
                     velocity_msg = command()
                     velocity_msg.vy = 0
                     velocity_msg.vz = 0
-                    cv2.imshow("Camera Feed", processed_frame)  # 显示图像
                     velocity_pub.publish(velocity_msg)
 
             rate.sleep()  # 控制循环频率
+            if cv2.waitKey(1) & 0xFF == ord('q'):  # 添加退出条件
+                break
 
     def run(self):
         global velocity_pub
@@ -57,14 +62,13 @@ class CameraViewer:
         rospy.Subscriber("task/task_pub", command, CV_flag_cb)
 
         capture_thread = threading.Thread(target=self.capture_frame)
-        process_thread = threading.Thread(target=self.process_frame)
-
         capture_thread.start()
-        process_thread.start()
+
+        # 在主线程中处理帧
+        self.process_frame()
 
         # 等待线程结束
         capture_thread.join()
-        process_thread.join()
 
     def cleanup(self):
         self.running = False
