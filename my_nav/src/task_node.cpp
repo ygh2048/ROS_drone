@@ -16,9 +16,6 @@ geometry_msgs::PoseStamped current_pose;//获取当前坐标
 
 int processflag=0;//进度flag
 
-
-
-
 class task_node
 {
 private:
@@ -74,7 +71,8 @@ public:
     bool hover(int time);
     void task_spin(void);
     void clear_flag(void);
-    bool turn_true_angle();
+    bool turn_true_angle(void);
+    bool out_time_control(int time , int *processflag);
     void pub(void)
     {task_pub.publish(ctrl);}
 };
@@ -203,7 +201,7 @@ bool task_node::nav_takeoff_task(void)//起飞函数，仅仅第一次有效
         takeoff_x = current_pose.pose.position.x;
         taskoff_y = current_pose.pose.position.y;
     }
-    clear_flag();
+    //clear_flag();
     ctrl.Takeoff_flag = 1;//起飞指令
 
     
@@ -225,25 +223,17 @@ bool task_node::nav_takeoff_task(void)//起飞函数，仅仅第一次有效
         else
         {
             // 控制机器人朝向目标位置
-            ctrl.vx = (takeoff_x - current_pose.pose.position.x) / distance * 0.6;
-            ctrl.vy = (taskoff_y - current_pose.pose.position.y) / distance * 0.6;
-            ctrl.vz = (TARGET_Z - current_pose.pose.position.z) / distance * 0.6;
+            ctrl.vx = (takeoff_x - current_pose.pose.position.x) / distance * 0.4;
+            ctrl.vy = (taskoff_y - current_pose.pose.position.y) / distance * 0.4;
+            ctrl.vz = (TARGET_Z - current_pose.pose.position.z) / distance * 0.4;
 
             task_pub.publish(ctrl);
-            ROS_INFO("Moving to position: target(%f, %f, %f) current(%f, %f, %f)", 
-                    in_x, in_y, in_z, 
-                    current_pose.pose.position.x, 
-                    current_pose.pose.position.y, 
-                    current_pose.pose.position.z);
             return false; // 还未到达目标位置
         }
 
     }
     task_pub.publish(ctrl);
 }
-
-
-
 
 bool task_node::access(int flag, float deepth) //穿越圆环，不提供 vz, vy 版本，flag:视觉标志 deepth 穿越深度
 {
@@ -333,6 +323,7 @@ bool task_node::move_to_relative_position(float in_x, float in_y, float in_z)//�
 
     if (distance < threshold)
     {
+        ROS_INFO("arrive");
         // 到达目标位置
         first_execution = true; // 重置函数
         last_x = 0; 
@@ -348,11 +339,6 @@ bool task_node::move_to_relative_position(float in_x, float in_y, float in_z)//�
         ctrl.vz = (last_z - current_pose.pose.position.z) / distance * 0.6;
 
         task_pub.publish(ctrl);
-        ROS_INFO("Moving to position: target(%f, %f, %f) current(%f, %f, %f)", 
-                 in_x, in_y, in_z, 
-                 current_pose.pose.position.x, 
-                 current_pose.pose.position.y, 
-                 current_pose.pose.position.z);
         return false; // 还未到达目标位置
     }
 }
@@ -494,7 +480,7 @@ void task_node::clear_flag(void)//清除发送，慎重用
     ctrl.vy= 0.0;
     ctrl.vz= 0.0;
     ctrl.yaw = 0.0;
-    ROS_INFO("task node clear flag--------------");
+    //ROS_INFO("task node clear flag--------------");
 }
 
 bool task_node::turn_true_angle(void)//当finishcv_falg 为3时候，需要逆时针转动，为4时，需要顺时针转动。为5时，停止对准（此时同时已经对准圆形）
@@ -539,7 +525,7 @@ bool task_node::turn_true_angle(void)//当finishcv_falg 为3时候，需要逆�
     task_pub.publish(ctrl);
 }
 
-bool out_time_control(int time, int *processflag) {
+bool task_node::out_time_control(int time, int *processflag) {
     ctrl.Process_flag = *processflag;
     static int cnt = 0;
     static int last_processflag = 0;
@@ -551,13 +537,13 @@ bool out_time_control(int time, int *processflag) {
     }
 
     cnt++;
-
+    //ROS_INFO("cnt");
     if (cnt > time * 20) {
         *processflag = 99;  // 超时处理
         ROS_INFO("out of time");
         return false;  // 返回超时状态
     }
-    return true;  // 返回正常状态
+     return true;  // 返回正常状态
 }
 
 int main(int argc, char **argv)
@@ -596,25 +582,25 @@ while(ros::ok()){
     switch (processflag)//processflag 决定任务进程s
         {
         case 0:
-            if(task.nav_takeoff_task() && out_time_control(8 , &processflag))
+            if(task.nav_takeoff_task() )
             {
                 task.clear_flag();
                 processflag++;//进入下一个线程
             }break;
         case 1:
-            if(task.rotate_to_yaw( - M_PI /4) && out_time_control(8 , &processflag))
+            if(task.out_time_control(10 , &processflag) && task.rotate_to_yaw( - M_PI /4))
             {
                 task.clear_flag();
                 processflag++;    
             }break;
         case 2:
-            if(task.move_to_relative_head_position(1, 0, 0) && out_time_control(8 , &processflag))
+            if(task.out_time_control(10 , &processflag) && task.move_to_relative_head_position(1, 0, 1))
             {
                 task.clear_flag();
                 processflag++;
             }break; 
         case 3:
-            if(task.rotate_to_yaw_base(M_PI /4) && out_time_control(8 , &processflag))
+            if(task.out_time_control(10 , &processflag) && task.rotate_to_yaw_base(M_PI /4))
             {
                 task.clear_flag();
                 processflag++;    
@@ -624,6 +610,7 @@ while(ros::ok()){
                 task.nav_land_task();
             break;
         }
+        
         task.task_spin();
         rate.sleep();
     }
@@ -635,49 +622,49 @@ while(ros::ok()){
     switch (processflag)//processflag 决定任务进程s
         {
         case 0:
-            if(task.nav_takeoff_task() && out_time_control(15 , &processflag))
+            if(task.out_time_control(8 , &processflag) && task.nav_takeoff_task())
             {
                 task.clear_flag();
                 processflag++;//进入下一个线程
             }break;
         case 1:
-            if(task.move_to_relative_head_position(1, 0, 0) && out_time_control(15 , &processflag))
+            if(task.out_time_control(8 , &processflag) && task.move_to_relative_head_position(1, 0, 0))
             {
                 task.clear_flag();
                 processflag++;
             }break;
         case 2:
-            if(task.cv_task(1) && out_time_control(15 , &processflag))
+            if(task.out_time_control(8 , &processflag) && task.cv_task(1))
             {
                 task.clear_flag();
                 processflag++;    
             }break;            
         case 3:
-            if(task.access(1,2.2) && out_time_control(15 , &processflag))
+            if(task.out_time_control(8 , &processflag) && task.access(1,2.2))
             {
                 task.clear_flag();
                 processflag++;    
             }break;
         case 4:
-            if(task.move_to_relative_head_position(0.2, 0.5, 0) && out_time_control(15 , &processflag))
+            if(task.out_time_control(8 , &processflag) && task.move_to_relative_head_position(0.2, 0.5, 0))
             {
                 task.clear_flag();
                 processflag++;
             }break;
         case 5:
-            if(task.rotate_to_yaw_base(- M_PI / 6) && out_time_control(15 , &processflag))//顺时针旋转30度
+            if(task.out_time_control(8 , &processflag) && task.rotate_to_yaw_base(- M_PI / 6))//顺时针旋转30度
             {
                 task.clear_flag();
                 processflag++;
             }break; 
         case 6:
-            if(task.cv_task(1) && out_time_control(15 , &processflag))
+            if(task.out_time_control(8 , &processflag) && task.cv_task(1))
             {
                 task.clear_flag();
                 processflag++;    
             }break;            
         case 7:
-            if(task.access(1,2.5) && out_time_control(15 , &processflag))
+            if(task.out_time_control(8 , &processflag) && task.access(1,2.5) )
             {
                 task.clear_flag();
                 processflag++;    
