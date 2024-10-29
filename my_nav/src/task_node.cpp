@@ -204,35 +204,36 @@ bool task_node::nav_takeoff_task(void)//起飞函数，仅仅第一次有效
     //clear_flag();
     ctrl.Takeoff_flag = 1;//起飞指令
 
-    
-
-
-    if(get_targetheight(TARGET_Z))
-    {
-        // 计算当前位置与目标位置的距离
-        float distance = sqrt(pow(takeoff_x - current_pose.pose.position.x, 2) +
-                            pow(taskoff_y - current_pose.pose.position.y, 2) +
-                            pow(TARGET_Z - current_pose.pose.position.z, 2));
-
-        const float threshold = 0.08; // 到达阈值
-
-        if (distance < threshold)
-        {
-            return true; // 到达中心
-        }
-        else
-        {
-            // 控制机器人朝向目标位置
-            ctrl.vx = (takeoff_x - current_pose.pose.position.x) / distance * 0.4;
-            ctrl.vy = (taskoff_y - current_pose.pose.position.y) / distance * 0.4;
-            ctrl.vz = (TARGET_Z - current_pose.pose.position.z) / distance * 0.4;
-
-            task_pub.publish(ctrl);
-            return false; // 还未到达目标位置
-        }
-
-    }
     task_pub.publish(ctrl);
+
+    return get_targetheight(TARGET_Z);
+
+    // if(get_targetheight(TARGET_Z))
+    // {
+    //     // 计算当前位置与目标位置的距离
+    //     float distance = sqrt(pow(takeoff_x - current_pose.pose.position.x, 2) +
+    //                         pow(taskoff_y - current_pose.pose.position.y, 2) +
+    //                         pow(TARGET_Z - current_pose.pose.position.z, 2));
+
+    //     const float threshold = 0.16; // 到达阈值
+
+    //     if (distance < threshold)
+    //     {
+    //         return true; // 到达中心
+    //     }
+    //     else
+    //     {
+    //         // 控制机器人朝向目标位置
+    //         ctrl.vx = (takeoff_x - current_pose.pose.position.x) / distance * 0.3;
+    //         ctrl.vy = (taskoff_y - current_pose.pose.position.y) / distance * 0.3;
+    //         ctrl.vz = (TARGET_Z - current_pose.pose.position.z) / distance * 0.3;
+
+    //         task_pub.publish(ctrl);
+    //         return false; // 还未到达目标位置
+    //     }
+
+    // }
+    // task_pub.publish(ctrl);
 }
 
 bool task_node::access(int flag, float deepth) //穿越圆环，不提供 vz, vy 版本，flag:视觉标志 deepth 穿越深度
@@ -241,6 +242,8 @@ bool task_node::access(int flag, float deepth) //穿越圆环，不提供 vz, vy
     static float last_y = 0; // 设置静态变量，记录位置信息
     static float last_yaw = 0; // 设置静态变量，记录位置信息
     static bool first_execution = true; // 设置静态变量，标记是否是第一次执行
+    static bool first_finishflag_1 = true; // 设置静态变量，标记是否是第一次执行
+    static bool first_finishflag_2 = true; // 设置静态变量，标记是否是第一次执行
     clear_flag();
 
     ctrl.CV_flag = flag; // 启动视觉控制，自给，flagcv 的模式
@@ -260,7 +263,30 @@ bool task_node::access(int flag, float deepth) //穿越圆环，不提供 vz, vy
     float relative_vz = get_msg[1].vz; // 相对机头的 z 速度
     float relative_vx = 0; // 相对机头的 x 速度
 
-    if (ctrl.Finishcv_flag == 3)
+    if (ctrl.Finishcv_flag == 1)
+    {
+        relative_vy = get_msg[1].vy; // 相对机头的 y 速度
+        relative_vz = get_msg[1].vz; // 相对机头的 z 速度
+        relative_vx = 0.4;
+        first_finishflag_1 = false;
+    }
+
+    if (ctrl.Finishcv_flag == 2)
+    {
+        relative_vy = 0; // 相对机头的 y 速度
+        relative_vz = 0; // 相对机头的 z 速度
+        relative_vx = 0.4;
+        first_finishflag_2 = false;
+    }
+
+    if(!first_finishflag_1)
+    {
+        relative_vy = get_msg[1].vy; // 相对机头的 y 速度
+        relative_vz = get_msg[1].vz; // 相对机头的 z 速度
+        relative_vx = 0.4;
+    }    
+
+    if(!first_finishflag_2)
     {
         relative_vy = 0;
         relative_vz = 0;
@@ -283,7 +309,9 @@ bool task_node::access(int flag, float deepth) //穿越圆环，不提供 vz, vy
     // 检查目标位置是否达到
     if (get_targetx(target_x) && get_targety(target_y))
     {   
-        first_execution = true; 
+        first_execution = true;
+        first_finishflag_1 = true; 
+        first_finishflag_2 = true; 
         return true;
     }
     else
@@ -588,23 +616,30 @@ while(ros::ok()){
                 processflag++;//进入下一个线程
             }break;
         case 1:
-            if(task.out_time_control(10 , &processflag) && task.rotate_to_yaw( - M_PI /4))
+            if(task.out_time_control(10 , &processflag) && task.rotate_to_yaw( M_PI / 4))
             {
                 task.clear_flag();
                 processflag++;    
             }break;
         case 2:
-            if(task.out_time_control(10 , &processflag) && task.move_to_relative_head_position(1, 0, 1))
+            if(task.out_time_control(10 , &processflag) && task.cv_task(1))
             {
                 task.clear_flag();
                 processflag++;
             }break; 
         case 3:
-            if(task.out_time_control(10 , &processflag) && task.rotate_to_yaw_base(M_PI /4))
+            if(task.out_time_control(10 , &processflag) && task.access(1,1.2))
             {
                 task.clear_flag();
                 processflag++;    
-            }break;           
+            }break; 
+        case 4:
+            if(task.out_time_control(5 , &processflag) && task.hover(10))
+            {
+                task.clear_flag();
+                processflag++;    
+            }break;             
+
         default:
                 task.clear_flag();
                 task.nav_land_task();
