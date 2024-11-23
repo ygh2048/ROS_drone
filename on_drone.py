@@ -3,6 +3,7 @@
 # 添加多线程，发布和订阅
 
 import numpy as np
+import math
 import rospy
 import cv2
 import threading
@@ -23,25 +24,35 @@ def calculate_angle(center, new_center):
     return angle
 
 
-# 目标中心（x1,y1），图像中心（c1,c2）
-def calculate_velocity(x1, y1, c1, c2, speed):
+def calculate_velocity(x1, y1, c1, c2, max_speed):
     # 计算目标中心与图像中心的偏差
     delta_x = c1 - x1
     delta_y = c2 - y1
     
+    # 计算与目标的距离
+    distance = np.sqrt(delta_x**2 + delta_y**2)
+    
+    # 线性减速，距离越小，速度越小
+    # 可以通过一个常数调整速度衰减的效果
+    arr = distance/300
+    if arr>1:
+        arr = 1
+    speed = arr * max_speed
+
     # 计算角度
     angle = np.arctan2(delta_y, delta_x)  # 计算与 x 轴的角度
 
     # 计算速度分量
     vy = np.cos(angle) * speed  # x 方向的速度分量
     vz = np.sin(angle) * speed  # y 方向的速度分量
-    
+
     return vy, vz
 
 
 def detect_red_blue_circles(frame):
     flag = 0
     finishcv_flag = 0
+    body_center = (640, 320)
     # 将帧调整为 HSV 色彩空间
     #frame = cv2.resize(frame, (640, 360), interpolation=cv2.INTER_LINEAR)
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -86,7 +97,7 @@ def detect_red_blue_circles(frame):
 
     # 如果检测到红色和蓝色圆圈
     if center_red and center_blue:
-        body_center = ((center_red[0] + center_blue[0]) // 2, (center_red[1] + center_blue[1]) // 2 -25)
+        body_center = ((center_red[0] + center_blue[0]) // 2, (center_red[1] + center_blue[1]) // 2 -30)
 
         cv2.line(frame, center_red, center_blue, (255, 255, 255), 2)
         cv2.circle(frame, body_center, 5, (255, 255, 255), -1)
@@ -103,14 +114,14 @@ def detect_red_blue_circles(frame):
 
         # 计算图像中心与 body_center 之间的距离
         if body_center is not None:
-    # 将 image_center 替换为确定的坐标 (320, 150)
+        # 将 image_center 替换为确定的坐标 (320, 150)
             new_center = (640, 320)
             dist_to_body_center = np.linalg.norm(np.array(new_center) - np.array(body_center))
 
     
 
             # 更新 bingo 值
-            if dist_to_body_center < 45:
+            if dist_to_body_center < 100:
                 flag += 1
             else:
                 flag = 0
@@ -160,13 +171,11 @@ class CameraViewer:
                         cnt = 0
 
                     # 检查 flag 值
-                    if cnt > 4:
+                    if cnt > 2:
                         finishcv_flag = 1
 
                     if fflag == 2:
                         finishcv_flag = 2
-
-
 
                     # 发布消息
                     velocity_msg = command()
@@ -174,13 +183,13 @@ class CameraViewer:
                     new_center = (640, 320)
 
                     if body_center != (0, 0):
-                        Vy, Vz = calculate_velocity(body_center[0], body_center[1], new_center[0], new_center[1], 0.45)
+                        Vy, Vz = calculate_velocity(body_center[0], body_center[1], new_center[0], new_center[1], 0.40)
 
                         # 限制速度
-                        Vy = np.clip(Vy, -0.38, 0.38)
-                        Vz = np.clip(Vz, -0.28, 0.28)
+                        Vy = np.clip(Vy, -0.25, 0.25)
+                        Vz = np.clip(Vz, -0.2, 0.2)
 
-                        velocity_msg.vy = -Vy
+                        velocity_msg.vy = Vy
                         velocity_msg.vz = Vz
                         velocity_msg.Finishcv_flag = finishcv_flag
 
