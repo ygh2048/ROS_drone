@@ -1,10 +1,3 @@
-/*
- * send_goal.cpp
- *
- *  Created on: Aug 10, 2016
- *      Author: unicorn
- */
-
 #include <ros/ros.h>
 #include <move_base_msgs/MoveBaseAction.h>
 #include <actionlib/client/simple_action_client.h>
@@ -56,6 +49,13 @@ typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>  MoveBaseC
 
 
 
+/**
+ * @description:  通过传入的航点位置，发送航点到move_base进行控制
+ * @param {MoveBaseClient&} ac
+ * @param {int} num
+ * @param {MoveBaseGoal} goal
+ * @return {*}
+ */
 bool nav_points_task(MoveBaseClient& ac,int num,move_base_msgs::MoveBaseGoal goal)//ac,goal为传入的局部变量，num为航点在数组中的位置
 {
 		goal.target_pose.header.frame_id = "map";
